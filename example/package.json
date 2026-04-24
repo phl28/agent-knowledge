@@ -1,0 +1,19 @@
+{
+  "name": "agent-knowledge-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "convex dev",
+    "deploy": "convex deploy"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^2.0.0",
+    "@convex-dev/agent-knowledge": "file:..",
+    "ai": "^5.0.0",
+    "convex": "^1.29.0",
+    "neo4j-driver": "^5.28.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
