@@ -1,0 +1,7 @@
+node_modules
+dist
+.convex
+coverage
+*.log
+example/convex/_generated
+src/component/_generated
