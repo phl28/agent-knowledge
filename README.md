@@ -4,14 +4,14 @@ Agent Knowledge is a Convex component for persistent agent memory. It uses Conve
 tables as the source of truth, Convex vector search for semantic recall, and Neo4j
 as an optional graph projection for relationship traversal.
 
-The lifecycle is inspired by Cognee, but the public API is agent-native:
+The component has four core memory operations:
 
-| Cognee idea | Agent Knowledge API | Meaning |
-| --- | --- | --- |
-| `add + cognify` | `remember` | Store raw memory, chunk it, embed it, extract graph facts, and enqueue graph sync. |
-| `search` | `recall` | Retrieve memories through semantic, graph, or hybrid search. |
-| `memify` feedback input | `observe` | Record whether recalled memories helped. |
-| `memify` enrichment | `promote` | Reweight useful memories and relationships from observations. |
+| Operation | Meaning |
+| --- | --- |
+| `remember` | Store raw memory, chunk it, embed it, extract graph facts, and enqueue graph sync. |
+| `recall` | Retrieve memories through semantic, graph, or hybrid search. |
+| `observe` | Record whether recalled memories helped. |
+| `promote` | Reweight useful memories and relationships from observations. |
 
 ## Install
 
