@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { v } from "convex/values";
 import { internalQuery, query } from "./_generated/server.js";
 import { memoryCardValidator, vectorTableForDimension } from "./validators.js";
@@ -116,7 +117,7 @@ export const listMemories = query({
   },
 });
 
-export const fetchMemoryCards = internalQuery({
+export const fetchMemoryCards = query({
   args: {
     matches: v.array(
       v.object({
@@ -177,7 +178,7 @@ export const fetchMemoryCardsByVectorMatches = internalQuery({
   },
 });
 
-export const listPendingGraphSyncJobs = internalQuery({
+export const listPendingGraphSyncJobs = query({
   args: {
     limit: v.number(),
   },

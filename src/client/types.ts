@@ -50,6 +50,32 @@ export type Neo4jConfig = {
   database?: string;
 };
 
+export type GraphSyncJob = {
+  jobId: string;
+  namespace: string;
+  operation: "upsert_memory" | "delete_memory" | "promote_memory";
+  attempts: number;
+  payload: unknown;
+};
+
+export type GraphMemoryScore = {
+  memoryId: string;
+  graphScore: number;
+};
+
+export type GraphExpandInput = {
+  namespace: string;
+  seedMemoryIds: string[];
+  entityHints?: string[];
+  hops?: number;
+  limit?: number;
+};
+
+export type GraphStore = {
+  syncJob: (job: GraphSyncJob) => Promise<void>;
+  expand: (input: GraphExpandInput) => Promise<GraphMemoryScore[]>;
+};
+
 export type MemoryCard = {
   memoryId: string;
   namespace: string;
@@ -82,17 +108,21 @@ export type MemoryCard = {
 export type AgentKnowledgeComponent = {
   actions: {
     recall: unknown;
-    syncGraph: unknown;
   };
   mutations: {
     remember: unknown;
     observe: unknown;
     promote: unknown;
     deleteByKey: unknown;
+    markGraphSyncJobRunning: unknown;
+    markGraphSyncJobSucceeded: unknown;
+    markGraphSyncJobFailed: unknown;
   };
   queries: {
     getMemory: unknown;
     listMemories: unknown;
+    fetchMemoryCards: unknown;
+    listPendingGraphSyncJobs: unknown;
   };
 };
 

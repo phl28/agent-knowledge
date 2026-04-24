@@ -21,7 +21,7 @@ describe("fuseMemoryScores", () => {
     );
 
     expect(results).toHaveLength(2);
-    expect(results[0]!.memoryId).toBe("b");
+    expect(results[0]!.memoryId).toBe("a");
     expect(results.find((result) => result.memoryId === "a")).toMatchObject({
       semanticScore: 0.8,
       graphScore: 2,

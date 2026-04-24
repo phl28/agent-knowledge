@@ -34,6 +34,8 @@ export default app;
 
 ## Usage
 
+Semantic memory works from regular Convex actions:
+
 ```ts
 // convex/knowledge.ts
 import { openai } from "@ai-sdk/openai";
@@ -46,12 +48,6 @@ const knowledge = new AgentKnowledge(components.agentKnowledge, {
   textEmbeddingModel: openai.embedding("text-embedding-3-small"),
   embeddingDimension: 1536,
   extractionModel: openai.chat("gpt-4o-mini"),
-  neo4j: {
-    uri: process.env.NEO4J_URI!,
-    user: process.env.NEO4J_USER!,
-    password: process.env.NEO4J_PASSWORD!,
-    database: process.env.NEO4J_DATABASE,
-  },
 });
 
 export const remember = action({
@@ -94,10 +90,52 @@ export const observe = mutation({
 });
 ```
 
+Neo4j support runs from your app's own Node action, not inside the component:
+
+```ts
+// convex/knowledgeNode.ts
+"use node";
+
+import { openai } from "@ai-sdk/openai";
+import { v } from "convex/values";
+import { action } from "./_generated/server.js";
+import { components } from "./_generated/api.js";
+import { AgentKnowledge } from "@convex-dev/agent-knowledge";
+import { createNeo4jGraphStore } from "@convex-dev/agent-knowledge/node";
+
+const graph = createNeo4jGraphStore({
+  uri: process.env.NEO4J_URI!,
+  user: process.env.NEO4J_USER!,
+  password: process.env.NEO4J_PASSWORD!,
+  database: process.env.NEO4J_DATABASE,
+});
+
+const knowledge = new AgentKnowledge(components.agentKnowledge, {
+  textEmbeddingModel: openai.embedding("text-embedding-3-small"),
+  embeddingDimension: 1536,
+  extractionModel: openai.chat("gpt-4o-mini"),
+  graph,
+});
+
+export const recallHybrid = action({
+  args: { namespace: v.string(), query: v.string() },
+  handler: async (ctx, args) => {
+    return await knowledge.recall(ctx, {
+      namespace: args.namespace,
+      query: args.query,
+      searchType: "hybrid",
+    });
+  },
+});
+```
+
 ## Notes
 
-- `remember` and `recall` are intended to run from Convex actions because they call
-  model providers and vector search.
+- `remember` and semantic `recall` are intended to run from Convex actions because
+  they call model providers and vector search.
+- Neo4j integration is exported from `@convex-dev/agent-knowledge/node` and must
+  run in your app's own `"use node"` action. Convex components cannot use
+  `"use node"` internally.
 - Component functions cannot read the app's environment variables. Pass Neo4j
   credentials into the client from the app side.
 - Neo4j is a derived graph index. Convex stores canonical memories, chunks,

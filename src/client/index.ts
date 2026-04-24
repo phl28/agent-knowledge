@@ -2,6 +2,7 @@ import { embed, embedMany } from "ai";
 import { chunkText, type ChunkTextOptions } from "./chunking.js";
 import { extractKnowledge } from "./extraction.js";
 import { stableHash } from "./hash.js";
+import { fuseMemoryScores } from "../shared/ranking.js";
 import type {
   AgentKnowledgeComponent,
   ChunkInput,
@@ -10,9 +11,10 @@ import type {
   ConvexQueryCtx,
   EmbeddedChunkInput,
   ExtractedKnowledge,
+  GraphStore,
+  GraphSyncJob,
   MemoryCard,
   MemorySource,
-  Neo4jConfig,
   SearchType,
 } from "./types.js";
 
@@ -20,7 +22,7 @@ export type AgentKnowledgeOptions = {
   textEmbeddingModel?: unknown;
   embeddingDimension: number;
   extractionModel?: unknown;
-  neo4j?: Neo4jConfig;
+  graph?: GraphStore;
   chunking?: ChunkTextOptions;
   extract?: (input: {
     namespace: string;
@@ -49,7 +51,7 @@ export type RecallInput = {
   agentId?: string;
   entityHints?: string[];
   queryEmbedding?: number[];
-  neo4j?: Neo4jConfig;
+  graph?: GraphStore;
 };
 
 export type ObserveInput = {
@@ -103,7 +105,7 @@ export class AgentKnowledge {
     };
 
     const result = await ctx.runMutation(this.component.mutations.remember, mutationArgs);
-    if (this.options.neo4j) {
+    if (this.options.graph) {
       await this.syncGraph(ctx, { limit: 10 });
     }
     return result as {
@@ -117,23 +119,50 @@ export class AgentKnowledge {
   }
 
   async recall(ctx: ConvexActionCtx, input: RecallInput) {
+    const searchType = input.searchType ?? "hybrid";
+    const limit = input.limit ?? 10;
     const queryEmbedding =
       input.queryEmbedding ??
-      (input.searchType === "graph" ? undefined : await this.embedQuery(input.query));
-    const result = await ctx.runAction(this.component.actions.recall, {
+      (searchType === "graph" ? undefined : await this.embedQuery(input.query));
+    const semanticResult =
+      searchType === "graph"
+        ? { results: [] as MemoryCard[] }
+        : ((await ctx.runAction(this.component.actions.recall, {
+            namespace: input.namespace,
+            query: input.query,
+            ...(queryEmbedding === undefined ? {} : { queryEmbedding }),
+            embeddingDimension: this.options.embeddingDimension,
+            searchType,
+            limit,
+            ...(input.agentId === undefined ? {} : { agentId: input.agentId }),
+          })) as { results: MemoryCard[] });
+
+    const graph = input.graph ?? this.options.graph;
+    if (!graph || searchType === "semantic") {
+      return semanticResult;
+    }
+
+    const graphScores = await graph.expand({
       namespace: input.namespace,
-      query: input.query,
-      ...(queryEmbedding === undefined ? {} : { queryEmbedding }),
-      embeddingDimension: this.options.embeddingDimension,
-      ...(input.searchType === undefined ? {} : { searchType: input.searchType }),
-      ...(input.limit === undefined ? {} : { limit: input.limit }),
-      ...(input.agentId === undefined ? {} : { agentId: input.agentId }),
+      seedMemoryIds: semanticResult.results.map((card) => card.memoryId),
+      hops: 2,
+      limit: Math.max(limit * 4, 16),
       ...(input.entityHints === undefined ? {} : { entityHints: input.entityHints }),
-      ...(input.neo4j ?? this.options.neo4j
-        ? { neo4j: input.neo4j ?? this.options.neo4j }
-        : {}),
     });
-    return result as { results: MemoryCard[] };
+    const graphCards =
+      graphScores.length === 0
+        ? []
+        : ((await ctx.runQuery(this.component.queries.fetchMemoryCards, {
+            matches: graphScores.map((score) => ({
+              memoryId: score.memoryId,
+              score: score.graphScore,
+              graphScore: score.graphScore,
+            })),
+          })) as MemoryCard[]);
+
+    return {
+      results: fuseMemoryScores(semanticResult.results, graphCards, { limit }),
+    };
   }
 
   async observe(ctx: ConvexMutationCtx, input: ObserveInput) {
@@ -192,15 +221,38 @@ export class AgentKnowledge {
     };
   }
 
-  async syncGraph(ctx: ConvexActionCtx, input?: { neo4j?: Neo4jConfig; limit?: number }) {
-    const neo4j = input?.neo4j ?? this.options.neo4j;
-    if (!neo4j) {
+  async syncGraph(ctx: ConvexActionCtx, input?: { graph?: GraphStore; limit?: number }) {
+    const graph = input?.graph ?? this.options.graph;
+    if (!graph) {
       return { succeeded: 0, failed: 0 };
     }
-    return (await ctx.runAction(this.component.actions.syncGraph, {
-      neo4j,
-      ...(input?.limit === undefined ? {} : { limit: input.limit }),
-    })) as { succeeded: number; failed: number };
+    const jobs = (await ctx.runQuery(
+      this.component.queries.listPendingGraphSyncJobs,
+      {
+        limit: input?.limit ?? 10,
+      },
+    )) as GraphSyncJob[];
+    let succeeded = 0;
+    let failed = 0;
+    for (const job of jobs) {
+      await ctx.runMutation(this.component.mutations.markGraphSyncJobRunning, {
+        jobId: job.jobId,
+      });
+      try {
+        await graph.syncJob(job);
+        await ctx.runMutation(this.component.mutations.markGraphSyncJobSucceeded, {
+          jobId: job.jobId,
+        });
+        succeeded += 1;
+      } catch (error) {
+        await ctx.runMutation(this.component.mutations.markGraphSyncJobFailed, {
+          jobId: job.jobId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        failed += 1;
+      }
+    }
+    return { succeeded, failed };
   }
 
   private async embedChunks(chunks: ChunkInput[]): Promise<EmbeddedChunkInput[]> {
@@ -255,6 +307,10 @@ export type {
   ExtractedEntity,
   ExtractedKnowledge,
   ExtractedRelationship,
+  GraphExpandInput,
+  GraphMemoryScore,
+  GraphStore,
+  GraphSyncJob,
   MemoryCard,
   MemorySource,
   Neo4jConfig,

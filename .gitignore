@@ -4,4 +4,5 @@ dist
 coverage
 *.log
 example/convex/_generated
-src/component/_generated
+
+.env.local

@@ -58,8 +58,10 @@ export async function extractKnowledge(
         externalId,
         name: entity.name,
         type: entity.type,
-        description: entity.description,
-        aliases: entity.aliases,
+        ...(entity.description === undefined
+          ? {}
+          : { description: entity.description }),
+        ...(entity.aliases === undefined ? {} : { aliases: entity.aliases }),
         confidence: entity.confidence ?? 0.75,
       };
     });
@@ -76,7 +78,9 @@ export async function extractKnowledge(
             fromEntityExternalId,
             toEntityExternalId,
             type: relationship.type,
-            description: relationship.description,
+            ...(relationship.description === undefined
+              ? {}
+              : { description: relationship.description }),
             confidence: relationship.confidence ?? 0.75,
             weight: relationship.weight ?? 0.5,
           };
