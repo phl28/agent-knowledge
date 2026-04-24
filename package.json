@@ -2,6 +2,7 @@
   "name": "@convex-dev/agent-knowledge",
   "version": "0.0.0",
   "private": true,
+  "packageManager": "pnpm@10.10.0",
   "description": "Convex component for agent memory backed by Convex vector search and Neo4j graph traversal.",
   "type": "module",
   "main": "./dist/client/index.js",

@@ -16,7 +16,7 @@ The lifecycle is inspired by Cognee, but the public API is agent-native:
 ## Install
 
 ```bash
-npm install @convex-dev/agent-knowledge neo4j-driver ai
+pnpm add @convex-dev/agent-knowledge neo4j-driver ai
 ```
 
 Add the component to your Convex app:

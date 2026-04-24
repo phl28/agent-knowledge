@@ -1,6 +1,7 @@
 {
   "name": "agent-knowledge-example",
   "private": true,
+  "packageManager": "pnpm@10.10.0",
   "type": "module",
   "scripts": {
     "dev": "convex dev",
