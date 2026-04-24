@@ -60,6 +60,7 @@ export default defineSchema({
     status: memoryStatus,
     importance: v.number(),
     observationScore: v.number(),
+    embeddingDimension: v.number(),
     chunkCount: v.number(),
     entityCount: v.number(),
     relationshipCount: v.number(),
