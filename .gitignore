@@ -1,9 +1,7 @@
 node_modules
 dist
 .convex
-convex
 coverage
 *.log
-example/convex/_generated
 
 .env.local
