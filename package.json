@@ -1,9 +1,26 @@
 {
   "name": "convex-agent-knowledge",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.0.1",
   "description": "Convex component for agent memory backed by Convex vector search and Neo4j graph traversal.",
+  "keywords": [
+    "agent",
+    "ai",
+    "convex",
+    "convex-component",
+    "knowledge-graph",
+    "memory",
+    "neo4j",
+    "vector-search"
+  ],
+  "homepage": "https://github.com/phl28/agent-knowledge#readme",
+  "bugs": {
+    "url": "https://github.com/phl28/agent-knowledge/issues"
+  },
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/phl28/agent-knowledge.git"
+  },
   "files": [
     "dist",
     "src",
@@ -42,6 +59,7 @@
     "format:check": "oxfmt --check README.md package.json convex.json pnpm-workspace.yaml src example/convex '!src/component/_generated/**' '!example/convex/_generated/**'",
     "lint": "oxlint --deny correctness --vitest-plugin --ignore-pattern src/component/_generated --ignore-pattern example/convex/_generated .",
     "lint:fix": "oxlint --deny correctness --vitest-plugin --fix --ignore-pattern src/component/_generated --ignore-pattern example/convex/_generated .",
+    "publish:alpha": "pnpm publish --tag alpha",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build:codegen": "convex codegen --component-dir ./src/component && pnpm build",
