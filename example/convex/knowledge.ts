@@ -2,7 +2,7 @@ import { openai } from "@ai-sdk/openai";
 import { v } from "convex/values";
 import { action, mutation, query } from "./_generated/server.js";
 import { components } from "./_generated/api.js";
-import { AgentKnowledge } from "@convex-dev/agent-knowledge";
+import { AgentKnowledge } from "convex-agent-knowledge";
 
 const knowledge = new AgentKnowledge(components.agentKnowledge, {
   textEmbeddingModel: openai.embedding("text-embedding-3-small"),

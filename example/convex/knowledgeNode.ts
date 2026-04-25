@@ -4,8 +4,8 @@ import { openai } from "@ai-sdk/openai";
 import { v } from "convex/values";
 import { action } from "./_generated/server.js";
 import { components } from "./_generated/api.js";
-import { AgentKnowledge } from "@convex-dev/agent-knowledge";
-import { createNeo4jGraphStore } from "@convex-dev/agent-knowledge/node";
+import { AgentKnowledge } from "convex-agent-knowledge";
+import { createNeo4jGraphStore } from "convex-agent-knowledge/node";
 
 const graph = createNeo4jGraphStore({
   uri: process.env.NEO4J_URI!,

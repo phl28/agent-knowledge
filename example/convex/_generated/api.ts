@@ -50,5 +50,5 @@ export const internal: FilterApi<
 > = anyApi as any;
 
 export const components = componentsGeneric() as unknown as {
-  agentKnowledge: import("@convex-dev/agent-knowledge/_generated/component.js").ComponentApi<"agentKnowledge">;
+  agentKnowledge: import("convex-agent-knowledge/_generated/component.js").ComponentApi<"agentKnowledge">;
 };

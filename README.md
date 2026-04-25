@@ -16,7 +16,15 @@ The component has four core memory operations:
 ## Install
 
 ```bash
-pnpm add @convex-dev/agent-knowledge neo4j-driver ai
+pnpm add convex-agent-knowledge
+```
+
+The package includes its runtime dependencies, including the AI SDK and Neo4j
+driver. Install your model provider package separately. The examples below use
+OpenAI:
+
+```bash
+pnpm add @ai-sdk/openai
 ```
 
 Add the component to your Convex app:
@@ -24,7 +32,7 @@ Add the component to your Convex app:
 ```ts
 // convex/convex.config.ts
 import { defineApp } from "convex/server";
-import agentKnowledge from "@convex-dev/agent-knowledge/convex.config";
+import agentKnowledge from "convex-agent-knowledge/convex.config";
 
 const app = defineApp();
 app.use(agentKnowledge);
@@ -42,7 +50,7 @@ import { openai } from "@ai-sdk/openai";
 import { v } from "convex/values";
 import { action, mutation } from "./_generated/server.js";
 import { components } from "./_generated/api.js";
-import { AgentKnowledge } from "@convex-dev/agent-knowledge";
+import { AgentKnowledge } from "convex-agent-knowledge";
 
 const knowledge = new AgentKnowledge(components.agentKnowledge, {
   textEmbeddingModel: openai.embedding("text-embedding-3-small"),
@@ -100,8 +108,8 @@ import { openai } from "@ai-sdk/openai";
 import { v } from "convex/values";
 import { action } from "./_generated/server.js";
 import { components } from "./_generated/api.js";
-import { AgentKnowledge } from "@convex-dev/agent-knowledge";
-import { createNeo4jGraphStore } from "@convex-dev/agent-knowledge/node";
+import { AgentKnowledge } from "convex-agent-knowledge";
+import { createNeo4jGraphStore } from "convex-agent-knowledge/node";
 
 const graph = createNeo4jGraphStore({
   uri: process.env.NEO4J_URI!,
@@ -133,7 +141,7 @@ export const recallHybrid = action({
 
 - `remember` and semantic `recall` are intended to run from Convex actions because
   they call model providers and vector search.
-- Neo4j integration is exported from `@convex-dev/agent-knowledge/node` and must
+- Neo4j integration is exported from `convex-agent-knowledge/node` and must
   run in your app's own `"use node"` action. Convex components cannot use
   `"use node"` internally.
 - Component functions cannot read the app's environment variables. Pass Neo4j

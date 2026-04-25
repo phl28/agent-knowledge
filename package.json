@@ -1,8 +1,7 @@
 {
-  "name": "@convex-dev/agent-knowledge",
+  "name": "convex-agent-knowledge",
   "version": "0.0.0",
   "private": true,
-  "packageManager": "pnpm@10.10.0",
   "description": "Convex component for agent memory backed by Convex vector search and Neo4j graph traversal.",
   "type": "module",
   "main": "./dist/client/index.js",
@@ -24,31 +23,37 @@
     "./node": {
       "types": "./dist/node/index.d.ts",
       "default": "./dist/node/index.js"
-    }
+    },
+    "./_generated/component.js": {
+      "types": "./dist/component/_generated/component.d.ts"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
+    "src",
     "README.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build:codegen": "convex codegen --component-dir ./src/component && pnpm build",
+    "prepack": "pnpm build"
   },
   "dependencies": {
-    "ai": "^5.0.0",
-    "convex": "^1.29.0",
-    "neo4j-driver": "^5.28.1",
-    "zod": "^3.25.76"
+    "ai": "^6.0.168",
+    "neo4j-driver": "^6.0.1",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@ai-sdk/openai": "^2.0.0",
-    "@types/node": "^22.15.0",
-    "typescript": "^5.8.3",
-    "vitest": "^3.2.4"
+    "@ai-sdk/openai": "^3.0.53",
+    "@types/node": "^25.6.0",
+    "convex": "^1.35.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.4"
   },
   "peerDependencies": {
-    "ai": ">=5.0.0",
     "convex": ">=1.29.0"
   }
 }
