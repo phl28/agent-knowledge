@@ -6,12 +6,12 @@ as an optional graph projection for relationship traversal.
 
 The component has four core memory operations:
 
-| Operation | Meaning |
-| --- | --- |
+| Operation  | Meaning                                                                            |
+| ---------- | ---------------------------------------------------------------------------------- |
 | `remember` | Store raw memory, chunk it, embed it, extract graph facts, and enqueue graph sync. |
-| `recall` | Retrieve memories through semantic, graph, or hybrid search. |
-| `observe` | Record whether recalled memories helped. |
-| `promote` | Reweight useful memories and relationships from observations. |
+| `recall`   | Retrieve memories through semantic, graph, or hybrid search.                       |
+| `observe`  | Record whether recalled memories helped.                                           |
+| `promote`  | Reweight useful memories and relationships from observations.                      |
 
 ## Install
 

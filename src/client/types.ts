@@ -128,18 +128,12 @@ export type AgentKnowledgeComponent = {
 
 export type ConvexActionCtx = {
   runAction: (functionReference: unknown, args: Record<string, unknown>) => Promise<any>;
-  runMutation: (
-    functionReference: unknown,
-    args: Record<string, unknown>,
-  ) => Promise<any>;
+  runMutation: (functionReference: unknown, args: Record<string, unknown>) => Promise<any>;
   runQuery: (functionReference: unknown, args: Record<string, unknown>) => Promise<any>;
 };
 
 export type ConvexMutationCtx = {
-  runMutation: (
-    functionReference: unknown,
-    args: Record<string, unknown>,
-  ) => Promise<any>;
+  runMutation: (functionReference: unknown, args: Record<string, unknown>) => Promise<any>;
 };
 
 export type ConvexQueryCtx = {

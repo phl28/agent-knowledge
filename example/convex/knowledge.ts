@@ -46,11 +46,7 @@ export const observe = mutation({
     namespace: v.string(),
     memoryId: v.string(),
     query: v.string(),
-    outcome: v.union(
-      v.literal("helpful"),
-      v.literal("not_helpful"),
-      v.literal("neutral"),
-    ),
+    outcome: v.union(v.literal("helpful"), v.literal("not_helpful"), v.literal("neutral")),
   },
   handler: async (ctx, args) => {
     await knowledge.observe(ctx, args);

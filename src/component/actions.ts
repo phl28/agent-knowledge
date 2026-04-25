@@ -9,9 +9,7 @@ export const recall = action({
     query: v.string(),
     queryEmbedding: v.optional(v.array(v.float64())),
     embeddingDimension: v.number(),
-    searchType: v.optional(
-      v.union(v.literal("semantic"), v.literal("graph"), v.literal("hybrid")),
-    ),
+    searchType: v.optional(v.union(v.literal("semantic"), v.literal("graph"), v.literal("hybrid"))),
     limit: v.optional(v.number()),
     agentId: v.optional(v.string()),
   },
@@ -37,16 +35,13 @@ export const recall = action({
             )
           : q.and(q.eq("namespace", args.namespace), q.eq("kind", "chunk")),
     });
-    const semanticCards = await ctx.runQuery(
-      "queries:fetchMemoryCardsByVectorMatches",
-      {
-        embeddingDimension: args.embeddingDimension,
-        matches: vectorResults.map((result) => ({
-          vectorId: result._id,
-          score: result._score,
-        })),
-      },
-    );
+    const semanticCards = await ctx.runQuery("queries:fetchMemoryCardsByVectorMatches", {
+      embeddingDimension: args.embeddingDimension,
+      matches: vectorResults.map((result) => ({
+        vectorId: result._id,
+        score: result._score,
+      })),
+    });
     return { results: semanticCards.slice(0, limit) };
   },
 });

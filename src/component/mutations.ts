@@ -12,11 +12,7 @@ import { clamp } from "../shared/ranking.js";
 
 type MutationCtx = any;
 
-async function ensureNamespace(
-  ctx: MutationCtx,
-  namespace: string,
-  metadata?: unknown,
-) {
+async function ensureNamespace(ctx: MutationCtx, namespace: string, metadata?: unknown) {
   const now = Date.now();
   const existing = await ctx.db
     .query("namespaces")
@@ -37,7 +33,10 @@ async function ensureNamespace(
   });
 }
 
-async function deleteDerivedRows(ctx: MutationCtx, memory: { _id: string; embeddingDimension: number }) {
+async function deleteDerivedRows(
+  ctx: MutationCtx,
+  memory: { _id: string; embeddingDimension: number },
+) {
   const [chunks, entities, relationships] = await Promise.all([
     ctx.db
       .query("chunks")
@@ -190,9 +189,7 @@ export const remember = mutation({
         externalId: entity.externalId,
         name: entity.name,
         type: entity.type,
-        ...(entity.description === undefined
-          ? {}
-          : { description: entity.description }),
+        ...(entity.description === undefined ? {} : { description: entity.description }),
         ...(entity.aliases === undefined ? {} : { aliases: entity.aliases }),
         confidence: entity.confidence ?? 0.75,
         ...(entity.metadata === undefined ? {} : { metadata: entity.metadata }),
@@ -213,9 +210,7 @@ export const remember = mutation({
           : { description: relationship.description }),
         confidence: relationship.confidence ?? 0.75,
         weight: relationship.weight ?? 0.5,
-        ...(relationship.metadata === undefined
-          ? {}
-          : { metadata: relationship.metadata }),
+        ...(relationship.metadata === undefined ? {} : { metadata: relationship.metadata }),
         createdAt: now,
         updatedAt: now,
       });
@@ -261,11 +256,7 @@ export const observe = mutation({
     namespace: v.string(),
     memoryId: v.string(),
     query: v.string(),
-    outcome: v.union(
-      v.literal("helpful"),
-      v.literal("not_helpful"),
-      v.literal("neutral"),
-    ),
+    outcome: v.union(v.literal("helpful"), v.literal("not_helpful"), v.literal("neutral")),
     feedback: v.optional(v.string()),
     metadata: v.optional(v.any()),
   },
@@ -309,15 +300,8 @@ export const promote = mutation({
     const scores = new Map<string, number>();
     for (const observation of observations) {
       const delta =
-        observation.outcome === "helpful"
-          ? 1
-          : observation.outcome === "not_helpful"
-            ? -1
-            : 0;
-      scores.set(
-        observation.memoryId,
-        (scores.get(observation.memoryId) ?? 0) + delta,
-      );
+        observation.outcome === "helpful" ? 1 : observation.outcome === "not_helpful" ? -1 : 0;
+      scores.set(observation.memoryId, (scores.get(observation.memoryId) ?? 0) + delta);
     }
 
     const now = Date.now();
@@ -371,9 +355,7 @@ export const deleteByKey = mutation({
   handler: async (ctx, args) => {
     const memory = await ctx.db
       .query("memories")
-      .withIndex("by_namespace_key", (q) =>
-        q.eq("namespace", args.namespace).eq("key", args.key),
-      )
+      .withIndex("by_namespace_key", (q) => q.eq("namespace", args.namespace).eq("key", args.key))
       .filter((q) => q.eq(q.field("status"), "active"))
       .first();
     if (!memory) {

@@ -9,9 +9,7 @@ import type {
 
 export type Neo4jGraphStoreOptions = Neo4jConfig;
 
-export function createNeo4jGraphStore(
-  options: Neo4jGraphStoreOptions,
-): GraphStore {
+export function createNeo4jGraphStore(options: Neo4jGraphStoreOptions): GraphStore {
   return {
     async syncJob(job) {
       await withNeo4j(options, async (session) => {
@@ -32,17 +30,9 @@ export function createNeo4jGraphStore(
   };
 }
 
-async function withNeo4j<T>(
-  config: Neo4jConfig,
-  fn: (session: neo4j.Session) => Promise<T>,
-) {
-  const driver = neo4j.driver(
-    config.uri,
-    neo4j.auth.basic(config.user, config.password),
-  );
-  const session = driver.session(
-    config.database ? { database: config.database } : undefined,
-  );
+async function withNeo4j<T>(config: Neo4jConfig, fn: (session: neo4j.Session) => Promise<T>) {
+  const driver = neo4j.driver(config.uri, neo4j.auth.basic(config.user, config.password));
+  const session = driver.session(config.database ? { database: config.database } : undefined);
   try {
     return await fn(session);
   } finally {

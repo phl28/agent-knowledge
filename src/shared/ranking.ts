@@ -56,9 +56,7 @@ export function fuseMemoryScores<T extends RankedMemoryCard>(
       return {
         ...card,
         score:
-          semanticScore * semanticWeight +
-          graphScore * graphWeight +
-          importance * importanceWeight,
+          semanticScore * semanticWeight + graphScore * graphWeight + importance * importanceWeight,
       };
     })
     .sort((a, b) => b.score - a.score)

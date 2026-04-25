@@ -176,20 +176,14 @@ export class AgentKnowledge {
     });
   }
 
-  async promote(
-    ctx: ConvexMutationCtx,
-    input: { namespace: string; limit?: number },
-  ) {
+  async promote(ctx: ConvexMutationCtx, input: { namespace: string; limit?: number }) {
     return (await ctx.runMutation(this.component.mutations.promote, {
       namespace: input.namespace,
       ...(input.limit === undefined ? {} : { limit: input.limit }),
     })) as { promoted: number };
   }
 
-  async deleteByKey(
-    ctx: ConvexMutationCtx,
-    input: { namespace: string; key: string },
-  ) {
+  async deleteByKey(ctx: ConvexMutationCtx, input: { namespace: string; key: string }) {
     return (await ctx.runMutation(this.component.mutations.deleteByKey, {
       namespace: input.namespace,
       key: input.key,
@@ -226,12 +220,9 @@ export class AgentKnowledge {
     if (!graph) {
       return { succeeded: 0, failed: 0 };
     }
-    const jobs = (await ctx.runQuery(
-      this.component.queries.listPendingGraphSyncJobs,
-      {
-        limit: input?.limit ?? 10,
-      },
-    )) as GraphSyncJob[];
+    const jobs = (await ctx.runQuery(this.component.queries.listPendingGraphSyncJobs, {
+      limit: input?.limit ?? 10,
+    })) as GraphSyncJob[];
     let succeeded = 0;
     let failed = 0;
     for (const job of jobs) {
@@ -282,9 +273,7 @@ export class AgentKnowledge {
 
   private async embedQuery(query: string) {
     if (!this.options.textEmbeddingModel) {
-      throw new Error(
-        "AgentKnowledge requires textEmbeddingModel for semantic or hybrid recall",
-      );
+      throw new Error("AgentKnowledge requires textEmbeddingModel for semantic or hybrid recall");
     }
     const result = await embed({
       model: this.options.textEmbeddingModel as never,

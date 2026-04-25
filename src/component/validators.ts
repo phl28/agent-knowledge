@@ -4,8 +4,7 @@ export const supportedEmbeddingDimensions = [
   128, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096,
 ] as const;
 
-export type SupportedEmbeddingDimension =
-  (typeof supportedEmbeddingDimensions)[number];
+export type SupportedEmbeddingDimension = (typeof supportedEmbeddingDimensions)[number];
 
 export const sourceValidator = v.object({
   type: v.string(),

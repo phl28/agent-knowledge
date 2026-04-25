@@ -11,9 +11,7 @@ const graph = createNeo4jGraphStore({
   uri: process.env.NEO4J_URI!,
   user: process.env.NEO4J_USER!,
   password: process.env.NEO4J_PASSWORD!,
-  ...(process.env.NEO4J_DATABASE === undefined
-    ? {}
-    : { database: process.env.NEO4J_DATABASE }),
+  ...(process.env.NEO4J_DATABASE === undefined ? {} : { database: process.env.NEO4J_DATABASE }),
 });
 
 const knowledge = new AgentKnowledge(components.agentKnowledge, {
@@ -61,8 +59,6 @@ export const syncGraph = action({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    return await knowledge.syncGraph(ctx, {
-      ...(args.limit === undefined ? {} : { limit: args.limit }),
-    });
+    return await knowledge.syncGraph(ctx, args.limit === undefined ? {} : { limit: args.limit });
   },
 });

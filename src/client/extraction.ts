@@ -48,19 +48,13 @@ export async function extractKnowledge(
     });
     const byName = new Map<string, string>();
     const entities = result.object.entities.map((entity) => {
-      const externalId = normalizeEntityId(
-        options.namespace,
-        entity.name,
-        entity.type,
-      );
+      const externalId = normalizeEntityId(options.namespace, entity.name, entity.type);
       byName.set(entity.name.toLowerCase(), externalId);
       return {
         externalId,
         name: entity.name,
         type: entity.type,
-        ...(entity.description === undefined
-          ? {}
-          : { description: entity.description }),
+        ...(entity.description === undefined ? {} : { description: entity.description }),
         ...(entity.aliases === undefined ? {} : { aliases: entity.aliases }),
         confidence: entity.confidence ?? 0.75,
       };
@@ -94,12 +88,11 @@ export async function extractKnowledge(
   return heuristicExtractKnowledge(options.namespace, options.text);
 }
 
-export function heuristicExtractKnowledge(
-  namespace: string,
-  text: string,
-): ExtractedKnowledge {
+export function heuristicExtractKnowledge(namespace: string, text: string): ExtractedKnowledge {
   const candidates = new Set<string>();
-  for (const match of text.matchAll(/\b[A-Z][a-zA-Z0-9_-]{2,}(?:\s+[A-Z][a-zA-Z0-9_-]{2,}){0,3}\b/g)) {
+  for (const match of text.matchAll(
+    /\b[A-Z][a-zA-Z0-9_-]{2,}(?:\s+[A-Z][a-zA-Z0-9_-]{2,}){0,3}\b/g,
+  )) {
     candidates.add(match[0]);
   }
   const entities = [...candidates].slice(0, 24).map((name) => ({

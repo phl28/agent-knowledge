@@ -8,11 +8,7 @@ const sourceValidator = v.object({
   title: v.optional(v.string()),
 });
 
-const memoryStatus = v.union(
-  v.literal("active"),
-  v.literal("deleted"),
-  v.literal("pending"),
-);
+const memoryStatus = v.union(v.literal("active"), v.literal("deleted"), v.literal("pending"));
 
 const syncStatus = v.union(
   v.literal("pending"),
@@ -126,11 +122,7 @@ export default defineSchema({
     namespace: v.string(),
     memoryId: v.id("memories"),
     query: v.string(),
-    outcome: v.union(
-      v.literal("helpful"),
-      v.literal("not_helpful"),
-      v.literal("neutral"),
-    ),
+    outcome: v.union(v.literal("helpful"), v.literal("not_helpful"), v.literal("neutral")),
     feedback: v.optional(v.string()),
     metadata: v.optional(v.any()),
     createdAt: v.number(),

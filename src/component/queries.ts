@@ -45,9 +45,7 @@ async function buildMemoryCard(
     ...(memory.agentId === undefined ? {} : { agentId: memory.agentId }),
     text: memory.text,
     score,
-    ...(scores?.semanticScore === undefined
-      ? {}
-      : { semanticScore: scores.semanticScore }),
+    ...(scores?.semanticScore === undefined ? {} : { semanticScore: scores.semanticScore }),
     ...(scores?.graphScore === undefined ? {} : { graphScore: scores.graphScore }),
     importance: memory.importance,
     ...(memory.source === undefined ? {} : { source: memory.source }),
@@ -56,18 +54,14 @@ async function buildMemoryCard(
       externalId: entity.externalId,
       name: entity.name,
       type: entity.type,
-      ...(entity.description === undefined
-        ? {}
-        : { description: entity.description }),
+      ...(entity.description === undefined ? {} : { description: entity.description }),
       confidence: entity.confidence,
     })),
     relationships: relationships.map((relationship) => ({
       fromEntityExternalId: relationship.fromEntityExternalId,
       toEntityExternalId: relationship.toEntityExternalId,
       type: relationship.type,
-      ...(relationship.description === undefined
-        ? {}
-        : { description: relationship.description }),
+      ...(relationship.description === undefined ? {} : { description: relationship.description }),
       confidence: relationship.confidence,
       weight: relationship.weight,
     })),
