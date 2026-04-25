@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Convex component for agent memory backed by Convex vector search and Neo4j graph traversal.",
+  "license": "Apache-2.0",
   "files": [
     "dist",
     "src",
