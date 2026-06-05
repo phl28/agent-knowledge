@@ -42,6 +42,10 @@ export async function extractKnowledge(
         "Extract entities and relationships useful for long-lived agent memory.",
         "Use concise entity names. Relationship types should be uppercase snake case.",
         "Only include facts supported by the text.",
+        // DeepSeek (and other OpenAI-compatible providers) reject json_object
+        // response_format unless the prompt mentions JSON — keep this line so
+        // structured extraction works across providers, not just Anthropic.
+        "Respond with a single JSON object matching the requested schema.",
         "",
         options.text,
       ].join("\n"),
