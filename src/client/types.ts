@@ -74,6 +74,10 @@ export type GraphExpandInput = {
 export type GraphStore = {
   syncJob: (job: GraphSyncJob) => Promise<void>;
   expand: (input: GraphExpandInput) => Promise<GraphMemoryScore[]>;
+  // Delete every node/relationship in a namespace. Optional so custom stores
+  // that predate this method still satisfy the type; the Neo4j store implements
+  // it. Used by AgentKnowledge.forgetNamespace to purge the graph side.
+  forgetNamespace?: (namespace: string) => Promise<void>;
 };
 
 export type MemoryCard = {
@@ -114,6 +118,7 @@ export type AgentKnowledgeComponent = {
     observe: unknown;
     promote: unknown;
     deleteByKey: unknown;
+    forgetNamespace: unknown;
     markGraphSyncJobRunning: unknown;
     markGraphSyncJobSucceeded: unknown;
     markGraphSyncJobFailed: unknown;

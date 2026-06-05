@@ -194,6 +194,20 @@ export class AgentKnowledge {
     };
   }
 
+  // Purge all of a namespace's memories from Convex and, when a graph is
+  // configured, from Neo4j too. Use for clearing a user's memory (e.g. account
+  // deletion). Runs in an action since the graph cleanup is a network call.
+  async forgetNamespace(ctx: ConvexActionCtx, input: { namespace: string }) {
+    const result = (await ctx.runMutation(this.component.mutations.forgetNamespace, {
+      namespace: input.namespace,
+    })) as { deletedMemories: number };
+    const graph = this.options.graph;
+    if (graph?.forgetNamespace) {
+      await graph.forgetNamespace(input.namespace);
+    }
+    return result;
+  }
+
   async getMemory(ctx: ConvexQueryCtx, input: { memoryId: string }) {
     return (await ctx.runQuery(this.component.queries.getMemory, {
       memoryId: input.memoryId,

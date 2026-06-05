@@ -27,6 +27,15 @@ export function createNeo4jGraphStore(options: Neo4jGraphStoreOptions): GraphSto
     async expand(input) {
       return await expandGraph(options, input);
     },
+    async forgetNamespace(namespace) {
+      await withNeo4j(options, (session) =>
+        session.executeWrite((tx) =>
+          tx.run("MATCH (n {namespace: $namespace}) DETACH DELETE n", {
+            namespace,
+          }),
+        ),
+      );
+    },
   };
 }
 

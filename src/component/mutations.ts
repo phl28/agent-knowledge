@@ -385,6 +385,47 @@ export const deleteByKey = mutation({
   },
 });
 
+// Purge an entire namespace: every memory and its derived rows (chunks, vectors,
+// entities, relationships), plus observations and the namespace record. Single
+// pass — intended for bounded per-user namespaces (e.g. account deletion). The
+// graph side (Neo4j) is cleared separately by the client's forgetNamespace.
+export const forgetNamespace = mutation({
+  args: { namespace: v.string() },
+  returns: v.object({ deletedMemories: v.number() }),
+  handler: async (ctx, args) => {
+    const memories = await ctx.db
+      .query("memories")
+      .withIndex("by_namespace", (q) => q.eq("namespace", args.namespace))
+      .collect();
+    for (const memory of memories) {
+      const jobs = await ctx.db
+        .query("graphSyncJobs")
+        .withIndex("by_memory", (q) => q.eq("memoryId", memory._id))
+        .collect();
+      for (const job of jobs) {
+        await ctx.db.delete(job._id);
+      }
+      await deleteDerivedRows(ctx, memory);
+      await ctx.db.delete(memory._id);
+    }
+    const observations = await ctx.db
+      .query("observations")
+      .withIndex("by_namespace", (q) => q.eq("namespace", args.namespace))
+      .collect();
+    for (const observation of observations) {
+      await ctx.db.delete(observation._id);
+    }
+    const namespaceDoc = await ctx.db
+      .query("namespaces")
+      .withIndex("by_namespace", (q) => q.eq("namespace", args.namespace))
+      .unique();
+    if (namespaceDoc) {
+      await ctx.db.delete(namespaceDoc._id);
+    }
+    return { deletedMemories: memories.length };
+  },
+});
+
 export const markGraphSyncJobRunning = mutation({
   args: {
     jobId: v.string(),

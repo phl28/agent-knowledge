@@ -82,6 +82,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         { deleted: boolean; graphSyncJobId?: string; memoryId?: string },
         Name
       >;
+      forgetNamespace: FunctionReference<
+        "mutation",
+        "internal",
+        { namespace: string },
+        { deletedMemories: number },
+        Name
+      >;
       markGraphSyncJobFailed: FunctionReference<
         "mutation",
         "internal",
