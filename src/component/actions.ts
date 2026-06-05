@@ -23,20 +23,19 @@ export const recall = action({
       return { results: [] };
     }
     const vectorTable = vectorTableForDimension(args.embeddingDimension);
+    // Convex vector-search filters support only `eq` and `or` (no `and`), so we
+    // partition on a single field here — the namespace — and over-fetch, then
+    // apply the remaining conditions (kind, agentId) as a post-filter when
+    // resolving the cards below.
     const vectorResults = await ctx.vectorSearch(vectorTable, "by_embedding", {
       vector: args.queryEmbedding,
       limit: Math.min(limit * 4, 256),
-      filter: (q) =>
-        args.agentId
-          ? q.and(
-              q.eq("namespace", args.namespace),
-              q.eq("agentId", args.agentId),
-              q.eq("kind", "chunk"),
-            )
-          : q.and(q.eq("namespace", args.namespace), q.eq("kind", "chunk")),
+      filter: (q) => q.eq("namespace", args.namespace),
     });
     const semanticCards = await ctx.runQuery("queries:fetchMemoryCardsByVectorMatches", {
       embeddingDimension: args.embeddingDimension,
+      kind: "chunk",
+      ...(args.agentId ? { agentId: args.agentId } : {}),
       matches: vectorResults.map((result) => ({
         vectorId: result._id,
         score: result._score,

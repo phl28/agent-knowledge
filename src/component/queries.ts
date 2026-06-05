@@ -141,6 +141,10 @@ export const fetchMemoryCards = query({
 export const fetchMemoryCardsByVectorMatches = internalQuery({
   args: {
     embeddingDimension: v.number(),
+    // Conditions the vector search couldn't AND on the index — applied here as a
+    // post-filter against each matched row.
+    kind: v.optional(v.string()),
+    agentId: v.optional(v.string()),
     matches: v.array(
       v.object({
         vectorId: v.string(),
@@ -159,6 +163,12 @@ export const fetchMemoryCardsByVectorMatches = internalQuery({
       }
       const vectorRow = await ctx.db.get(vectorId);
       if (!vectorRow) {
+        continue;
+      }
+      if (args.kind && vectorRow.kind !== args.kind) {
+        continue;
+      }
+      if (args.agentId && vectorRow.agentId !== args.agentId) {
         continue;
       }
       const card = await buildMemoryCard(ctx, vectorRow.memoryId, match.score, {
