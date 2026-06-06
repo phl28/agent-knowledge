@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { v } from "convex/values";
 import { mutation } from "./_generated/server.js";
+import { internal } from "./_generated/api.js";
 import {
   chunkInputValidator,
   entityInputValidator,
@@ -385,18 +386,37 @@ export const deleteByKey = mutation({
   },
 });
 
-// Purge an entire namespace: every memory and its derived rows (chunks, vectors,
-// entities, relationships), plus observations and the namespace record. Single
-// pass — intended for bounded per-user namespaces (e.g. account deletion). The
-// graph side (Neo4j) is cleared separately by the client's forgetNamespace.
+// Memories fan out into chunks/vectors/entities/relationships, so they are
+// purged in smaller batches than the single-row observations.
+const FORGET_MEMORY_BATCH = 50;
+const FORGET_OBSERVATION_BATCH = 500;
+
+// Purge an entire namespace (e.g. account deletion / GDPR). Deletion runs in
+// bounded batches that reschedule themselves until the namespace is empty, so a
+// large namespace never exceeds a single Convex transaction. Neo4j is cleared
+// via a forget_namespace graph sync job enqueued once on the first pass and
+// driven by the client's syncGraph with the usual retry semantics.
 export const forgetNamespace = mutation({
-  args: { namespace: v.string() },
-  returns: v.object({ deletedMemories: v.number() }),
+  args: { namespace: v.string(), graphJobEnqueued: v.optional(v.boolean()) },
+  returns: v.object({ deletedMemories: v.number(), isDone: v.boolean() }),
   handler: async (ctx, args) => {
+    const now = Date.now();
+    if (!args.graphJobEnqueued) {
+      await ctx.db.insert("graphSyncJobs", {
+        namespace: args.namespace,
+        operation: "forget_namespace",
+        status: "pending",
+        attempts: 0,
+        payload: { namespace: args.namespace },
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
     const memories = await ctx.db
       .query("memories")
       .withIndex("by_namespace", (q) => q.eq("namespace", args.namespace))
-      .collect();
+      .take(FORGET_MEMORY_BATCH);
     for (const memory of memories) {
       const jobs = await ctx.db
         .query("graphSyncJobs")
@@ -408,13 +428,29 @@ export const forgetNamespace = mutation({
       await deleteDerivedRows(ctx, memory);
       await ctx.db.delete(memory._id);
     }
+    if (memories.length === FORGET_MEMORY_BATCH) {
+      await ctx.scheduler.runAfter(0, internal.mutations.forgetNamespace, {
+        namespace: args.namespace,
+        graphJobEnqueued: true,
+      });
+      return { deletedMemories: memories.length, isDone: false };
+    }
+
     const observations = await ctx.db
       .query("observations")
       .withIndex("by_namespace", (q) => q.eq("namespace", args.namespace))
-      .collect();
+      .take(FORGET_OBSERVATION_BATCH);
     for (const observation of observations) {
       await ctx.db.delete(observation._id);
     }
+    if (observations.length === FORGET_OBSERVATION_BATCH) {
+      await ctx.scheduler.runAfter(0, internal.mutations.forgetNamespace, {
+        namespace: args.namespace,
+        graphJobEnqueued: true,
+      });
+      return { deletedMemories: memories.length, isDone: false };
+    }
+
     const namespaceDoc = await ctx.db
       .query("namespaces")
       .withIndex("by_namespace", (q) => q.eq("namespace", args.namespace))
@@ -422,7 +458,7 @@ export const forgetNamespace = mutation({
     if (namespaceDoc) {
       await ctx.db.delete(namespaceDoc._id);
     }
-    return { deletedMemories: memories.length };
+    return { deletedMemories: memories.length, isDone: true };
   },
 });
 

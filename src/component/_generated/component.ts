@@ -85,8 +85,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       forgetNamespace: FunctionReference<
         "mutation",
         "internal",
-        { namespace: string },
-        { deletedMemories: number },
+        { graphJobEnqueued?: boolean; namespace: string },
+        { deletedMemories: number; isDone: boolean },
         Name
       >;
       markGraphSyncJobFailed: FunctionReference<

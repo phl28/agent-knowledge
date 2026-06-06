@@ -19,6 +19,8 @@ export function createNeo4jGraphStore(options: Neo4jGraphStoreOptions): GraphSto
           await deleteMemoryGraph(session, job.payload);
         } else if (job.operation === "promote_memory") {
           await promoteMemoryGraph(session, job.payload);
+        } else if (job.operation === "forget_namespace") {
+          await forgetNamespaceGraph(session, job.payload);
         } else {
           throw new Error(`Unsupported graph sync operation ${job.operation}`);
         }
@@ -27,16 +29,14 @@ export function createNeo4jGraphStore(options: Neo4jGraphStoreOptions): GraphSto
     async expand(input) {
       return await expandGraph(options, input);
     },
-    async forgetNamespace(namespace) {
-      await withNeo4j(options, (session) =>
-        session.executeWrite((tx) =>
-          tx.run("MATCH (n {namespace: $namespace}) DETACH DELETE n", {
-            namespace,
-          }),
-        ),
-      );
-    },
   };
+}
+
+async function forgetNamespaceGraph(session: neo4j.Session, payload: unknown) {
+  const { namespace } = payload as { namespace: string };
+  await session.executeWrite((tx) =>
+    tx.run("MATCH (n {namespace: $namespace}) DETACH DELETE n", { namespace }),
+  );
 }
 
 async function withNeo4j<T>(config: Neo4jConfig, fn: (session: neo4j.Session) => Promise<T>) {
