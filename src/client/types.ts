@@ -53,7 +53,7 @@ export type Neo4jConfig = {
 export type GraphSyncJob = {
   jobId: string;
   namespace: string;
-  operation: "upsert_memory" | "delete_memory" | "promote_memory";
+  operation: "upsert_memory" | "delete_memory" | "promote_memory" | "forget_namespace";
   attempts: number;
   payload: unknown;
 };
@@ -114,6 +114,7 @@ export type AgentKnowledgeComponent = {
     observe: unknown;
     promote: unknown;
     deleteByKey: unknown;
+    forgetNamespace: unknown;
     markGraphSyncJobRunning: unknown;
     markGraphSyncJobSucceeded: unknown;
     markGraphSyncJobFailed: unknown;

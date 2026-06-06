@@ -137,6 +137,7 @@ export default defineSchema({
       v.literal("upsert_memory"),
       v.literal("delete_memory"),
       v.literal("promote_memory"),
+      v.literal("forget_namespace"),
     ),
     status: syncStatus,
     attempts: v.number(),
