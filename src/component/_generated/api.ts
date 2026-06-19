@@ -9,6 +9,8 @@
  */
 
 import type * as actions from "../actions.js";
+import type * as crons from "../crons.js";
+import type * as graph from "../graph.js";
 import type * as mutations from "../mutations.js";
 import type * as queries from "../queries.js";
 import type * as validators from "../validators.js";
@@ -22,6 +24,8 @@ import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
   actions: typeof actions;
+  crons: typeof crons;
+  graph: typeof graph;
   mutations: typeof mutations;
   queries: typeof queries;
   validators: typeof validators;

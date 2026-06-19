@@ -43,10 +43,6 @@
       "types": "./dist/client/chunking.d.ts",
       "default": "./dist/client/chunking.js"
     },
-    "./node": {
-      "types": "./dist/node/index.d.ts",
-      "default": "./dist/node/index.js"
-    },
     "./_generated/component.js": {
       "types": "./dist/component/_generated/component.d.ts"
     },
@@ -67,7 +63,6 @@
   },
   "dependencies": {
     "ai": "^6.0.168",
-    "neo4j-driver": "^6.0.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -80,6 +75,6 @@
     "vitest": "^4.1.4"
   },
   "peerDependencies": {
-    "convex": ">=1.29.0"
+    "convex": ">=1.39.0"
   }
 }

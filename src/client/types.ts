@@ -43,39 +43,6 @@ export type EmbeddedChunkInput = ChunkInput & {
   embedding: number[];
 };
 
-export type Neo4jConfig = {
-  uri: string;
-  user: string;
-  password: string;
-  database?: string;
-};
-
-export type GraphSyncJob = {
-  jobId: string;
-  namespace: string;
-  operation: "upsert_memory" | "delete_memory" | "promote_memory" | "forget_namespace";
-  attempts: number;
-  payload: unknown;
-};
-
-export type GraphMemoryScore = {
-  memoryId: string;
-  graphScore: number;
-};
-
-export type GraphExpandInput = {
-  namespace: string;
-  seedMemoryIds: string[];
-  entityHints?: string[];
-  hops?: number;
-  limit?: number;
-};
-
-export type GraphStore = {
-  syncJob: (job: GraphSyncJob) => Promise<void>;
-  expand: (input: GraphExpandInput) => Promise<GraphMemoryScore[]>;
-};
-
 export type MemoryCard = {
   memoryId: string;
   namespace: string;
@@ -115,28 +82,28 @@ export type AgentKnowledgeComponent = {
     promote: unknown;
     deleteByKey: unknown;
     forgetNamespace: unknown;
-    markGraphSyncJobRunning: unknown;
-    markGraphSyncJobSucceeded: unknown;
-    markGraphSyncJobFailed: unknown;
   };
   queries: {
     getMemory: unknown;
     listMemories: unknown;
-    fetchMemoryCards: unknown;
-    listPendingGraphSyncJobs: unknown;
   };
 };
 
+// These accept Convex's GenericActionCtx/GenericMutationCtx/GenericQueryCtx
+// structurally. The function-reference parameters are intentionally loose
+// (`...args: any[]`): the client treats component function references opaquely,
+// and a stricter `unknown` parameter would make the real Convex ctx types fail
+// to assign here under strict function variance.
 export type ConvexActionCtx = {
-  runAction: (functionReference: unknown, args: Record<string, unknown>) => Promise<any>;
-  runMutation: (functionReference: unknown, args: Record<string, unknown>) => Promise<any>;
-  runQuery: (functionReference: unknown, args: Record<string, unknown>) => Promise<any>;
+  runAction: (...args: any[]) => Promise<any>;
+  runMutation: (...args: any[]) => Promise<any>;
+  runQuery: (...args: any[]) => Promise<any>;
 };
 
 export type ConvexMutationCtx = {
-  runMutation: (functionReference: unknown, args: Record<string, unknown>) => Promise<any>;
+  runMutation: (...args: any[]) => Promise<any>;
 };
 
 export type ConvexQueryCtx = {
-  runQuery: (functionReference: unknown, args: Record<string, unknown>) => Promise<any>;
+  runQuery: (...args: any[]) => Promise<any>;
 };

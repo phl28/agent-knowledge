@@ -6,7 +6,9 @@ release.
 
 Agent Knowledge is a Convex component for persistent agent memory. It uses Convex
 tables as the source of truth, Convex vector search for semantic recall, and Neo4j
-as an optional graph projection for relationship traversal.
+as a graph projection for relationship traversal. The Neo4j connection is supplied
+to the component as environment variables — the component runs the graph sync and
+traversal internally, so your application code never touches the driver.
 
 The component has four core memory operations:
 
@@ -23,26 +25,67 @@ The component has four core memory operations:
 pnpm add convex-agent-knowledge
 ```
 
-The package includes its runtime dependencies, including the AI SDK and Neo4j
-driver. Install your model provider package separately. The examples below use
+The package includes its runtime dependencies, including the AI SDK. Neo4j is
+reached over its HTTP Query API (no driver), so nothing extra is needed for the
+graph. Install your model provider package separately. The examples below use
 OpenAI:
 
 ```bash
 pnpm add @ai-sdk/openai
 ```
 
-Add the component to your Convex app:
+Add the component to your Convex app and pass the Neo4j connection through the
+component's environment variables (introduced in Convex 1.39, so this package
+requires `convex >= 1.39.0`):
 
 ```ts
 // convex/convex.config.ts
 import { defineApp } from "convex/server";
+import { v } from "convex/values";
 import agentKnowledge from "convex-agent-knowledge/convex.config";
 
-const app = defineApp();
-app.use(agentKnowledge);
+const app = defineApp({
+  env: {
+    NEO4J_URI: v.string(),
+    NEO4J_USER: v.string(),
+    NEO4J_PASSWORD: v.string(),
+    NEO4J_DATABASE: v.optional(v.string()),
+  },
+});
+
+app.use(agentKnowledge, {
+  env: {
+    NEO4J_URI: app.env.NEO4J_URI,
+    NEO4J_USER: app.env.NEO4J_USER,
+    NEO4J_PASSWORD: app.env.NEO4J_PASSWORD,
+    NEO4J_DATABASE: app.env.NEO4J_DATABASE,
+  },
+});
 
 export default app;
 ```
+
+Set the values in your deployment (required env vars must be present before a
+deploy succeeds):
+
+```bash
+npx convex env set NEO4J_URI neo4j+s://<your-db>.databases.neo4j.io
+npx convex env set NEO4J_USER neo4j
+npx convex env set NEO4J_PASSWORD ...
+# NEO4J_DATABASE is optional (defaults to "neo4j")
+```
+
+The component talks to Neo4j over its
+[HTTP Query API](https://neo4j.com/docs/query-api/current/) using `fetch`,
+because Convex components run in the default V8 runtime (no Bolt driver). On
+**Aura** this is enabled out of the box: set `NEO4J_URI` to your `neo4j+s://`
+connection URI and the Query API endpoint is derived from the same host over
+HTTPS.
+
+For a **self-hosted** Neo4j, enable the HTTP connector and set `NEO4J_URI` to
+that HTTP(S) endpoint directly (for example `https://your-host:7473`) — when
+`NEO4J_URI` already starts with `http`/`https` it is used as the Query API
+origin verbatim, rather than being derived from a Bolt URI.
 
 ## Usage
 
@@ -102,40 +145,23 @@ export const observe = mutation({
 });
 ```
 
-Neo4j support runs from your app's own Node action, not inside the component:
+Hybrid `recall` (semantic + graph) needs no extra setup. The component runs the
+Neo4j traversal internally with the credentials you configured, fuses the graph
+and vector scores, and returns ranked cards:
 
 ```ts
-// convex/knowledgeNode.ts
-"use node";
-
-import { openai } from "@ai-sdk/openai";
-import { v } from "convex/values";
-import { action } from "./_generated/server.js";
-import { components } from "./_generated/api.js";
-import { AgentKnowledge } from "convex-agent-knowledge";
-import { createNeo4jGraphStore } from "convex-agent-knowledge/node";
-
-const graph = createNeo4jGraphStore({
-  uri: process.env.NEO4J_URI!,
-  user: process.env.NEO4J_USER!,
-  password: process.env.NEO4J_PASSWORD!,
-  database: process.env.NEO4J_DATABASE,
-});
-
-const knowledge = new AgentKnowledge(components.agentKnowledge, {
-  textEmbeddingModel: openai.embedding("text-embedding-3-small"),
-  embeddingDimension: 1536,
-  extractionModel: openai.chat("gpt-4o-mini"),
-  graph,
-});
-
 export const recallHybrid = action({
-  args: { namespace: v.string(), query: v.string() },
+  args: {
+    namespace: v.string(),
+    query: v.string(),
+    entityHints: v.optional(v.array(v.string())),
+  },
   handler: async (ctx, args) => {
     return await knowledge.recall(ctx, {
       namespace: args.namespace,
       query: args.query,
       searchType: "hybrid",
+      ...(args.entityHints === undefined ? {} : { entityHints: args.entityHints }),
     });
   },
 });
@@ -143,13 +169,13 @@ export const recallHybrid = action({
 
 ## Notes
 
-- `remember` and semantic `recall` are intended to run from Convex actions because
-  they call model providers and vector search.
-- Neo4j integration is exported from `convex-agent-knowledge/node` and must
-  run in your app's own `"use node"` action. Convex components cannot use
-  `"use node"` internally.
-- Component functions cannot read the app's environment variables. Pass Neo4j
-  credentials into the client from the app side.
+- `remember` and `recall` are intended to run from Convex actions because they
+  call model providers and vector search.
+- Graph sync to Neo4j happens inside the component: each write enqueues a sync
+  job and the component drains it via the Neo4j HTTP Query API (`fetch`, default
+  runtime — components cannot use `"use node"`), with internal exponential-backoff
+  retries and a sweep cron, so a Neo4j outage never leaves orphaned data. Your
+  application never drives the sync or touches a Neo4j connection.
 - Neo4j is a derived graph index. Convex stores canonical memories, chunks,
   entities, relationships, observations, and graph sync jobs.
 - The default extractor uses the AI SDK when an `extractionModel` is provided. If

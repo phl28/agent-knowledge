@@ -1,7 +1,9 @@
 // @ts-nocheck
 import { v } from "convex/values";
+import { anyApi } from "convex/server";
 import { action } from "./_generated/server.js";
 import { memoryCardValidator, vectorTableForDimension } from "./validators.js";
+import { fuseMemoryScores } from "../shared/ranking.js";
 
 export const recall = action({
   args: {
@@ -12,6 +14,7 @@ export const recall = action({
     searchType: v.optional(v.union(v.literal("semantic"), v.literal("graph"), v.literal("hybrid"))),
     limit: v.optional(v.number()),
     agentId: v.optional(v.string()),
+    entityHints: v.optional(v.array(v.string())),
   },
   returns: v.object({
     results: v.array(memoryCardValidator),
@@ -19,28 +22,54 @@ export const recall = action({
   handler: async (ctx, args) => {
     const searchType = args.searchType ?? "hybrid";
     const limit = Math.min(Math.max(args.limit ?? 10, 1), 64);
-    if (searchType === "graph" || !args.queryEmbedding) {
-      return { results: [] };
+
+    let semanticCards = [];
+    if (searchType !== "graph" && args.queryEmbedding) {
+      const vectorTable = vectorTableForDimension(args.embeddingDimension);
+      // Convex vector-search filters support only `eq` and `or` (no `and`), so we
+      // partition on a single field here — the namespace — and over-fetch, then
+      // apply the remaining conditions (kind, agentId) as a post-filter when
+      // resolving the cards below.
+      const vectorResults = await ctx.vectorSearch(vectorTable, "by_embedding", {
+        vector: args.queryEmbedding,
+        limit: Math.min(limit * 4, 256),
+        filter: (q) => q.eq("namespace", args.namespace),
+      });
+      semanticCards = await ctx.runQuery("queries:fetchMemoryCardsByVectorMatches", {
+        embeddingDimension: args.embeddingDimension,
+        kind: "chunk",
+        ...(args.agentId ? { agentId: args.agentId } : {}),
+        matches: vectorResults.map((result) => ({
+          vectorId: result._id,
+          score: result._score,
+        })),
+      });
     }
-    const vectorTable = vectorTableForDimension(args.embeddingDimension);
-    // Convex vector-search filters support only `eq` and `or` (no `and`), so we
-    // partition on a single field here — the namespace — and over-fetch, then
-    // apply the remaining conditions (kind, agentId) as a post-filter when
-    // resolving the cards below.
-    const vectorResults = await ctx.vectorSearch(vectorTable, "by_embedding", {
-      vector: args.queryEmbedding,
-      limit: Math.min(limit * 4, 256),
-      filter: (q) => q.eq("namespace", args.namespace),
+
+    if (searchType === "semantic") {
+      return { results: semanticCards.slice(0, limit) };
+    }
+
+    // graph + hybrid: expand the graph from the semantic seeds (or from entity
+    // hints when there is no semantic query) and fuse the two score signals.
+    const graphScores = await ctx.runAction(anyApi.graph.expandGraph, {
+      namespace: args.namespace,
+      seedMemoryIds: semanticCards.map((card) => card.memoryId),
+      hops: 2,
+      limit: Math.max(limit * 4, 16),
+      ...(args.entityHints ? { entityHints: args.entityHints } : {}),
     });
-    const semanticCards = await ctx.runQuery("queries:fetchMemoryCardsByVectorMatches", {
-      embeddingDimension: args.embeddingDimension,
-      kind: "chunk",
-      ...(args.agentId ? { agentId: args.agentId } : {}),
-      matches: vectorResults.map((result) => ({
-        vectorId: result._id,
-        score: result._score,
-      })),
-    });
-    return { results: semanticCards.slice(0, limit) };
+    const graphCards =
+      graphScores.length === 0
+        ? []
+        : await ctx.runQuery("queries:fetchMemoryCards", {
+            matches: graphScores.map((score) => ({
+              memoryId: score.memoryId,
+              score: score.graphScore,
+              graphScore: score.graphScore,
+            })),
+          });
+
+    return { results: fuseMemoryScores(semanticCards, graphCards, { limit }) };
   },
 });
