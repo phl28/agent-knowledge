@@ -30,13 +30,17 @@ export const recall = action({
   args: {
     namespace: v.string(),
     query: v.string(),
+    entityHints: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
+    // Hybrid recall: the component runs semantic search and the Neo4j graph
+    // expansion internally, then fuses the scores. No graph wiring here.
     return await knowledge.recall(ctx, {
       namespace: args.namespace,
       query: args.query,
-      searchType: "semantic",
+      searchType: "hybrid",
       limit: 8,
+      ...(args.entityHints === undefined ? {} : { entityHints: args.entityHints }),
     });
   },
 });

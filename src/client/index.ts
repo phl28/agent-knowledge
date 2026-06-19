@@ -2,7 +2,6 @@ import { embed, embedMany } from "ai";
 import { chunkText, type ChunkTextOptions } from "./chunking.js";
 import { extractKnowledge } from "./extraction.js";
 import { stableHash } from "./hash.js";
-import { fuseMemoryScores } from "../shared/ranking.js";
 import type {
   AgentKnowledgeComponent,
   ChunkInput,
@@ -11,8 +10,6 @@ import type {
   ConvexQueryCtx,
   EmbeddedChunkInput,
   ExtractedKnowledge,
-  GraphStore,
-  GraphSyncJob,
   MemoryCard,
   MemorySource,
   SearchType,
@@ -22,7 +19,6 @@ export type AgentKnowledgeOptions = {
   textEmbeddingModel?: unknown;
   embeddingDimension: number;
   extractionModel?: unknown;
-  graph?: GraphStore;
   chunking?: ChunkTextOptions;
   extract?: (input: {
     namespace: string;
@@ -49,9 +45,12 @@ export type RecallInput = {
   searchType?: SearchType;
   limit?: number;
   agentId?: string;
+  // Entity names that seed graph traversal when there are no semantic results
+  // to expand from (i.e. searchType "graph", or "hybrid" with an empty semantic
+  // set). When semantic search returns seeds, expansion starts from those and
+  // these hints are not used.
   entityHints?: string[];
   queryEmbedding?: number[];
-  graph?: GraphStore;
 };
 
 export type ObserveInput = {
@@ -105,9 +104,6 @@ export class AgentKnowledge {
     };
 
     const result = await ctx.runMutation(this.component.mutations.remember, mutationArgs);
-    if (this.options.graph) {
-      await this.syncGraph(ctx, { limit: 10 });
-    }
     return result as {
       memoryId: string;
       replacedMemoryId?: string;
@@ -121,48 +117,22 @@ export class AgentKnowledge {
   async recall(ctx: ConvexActionCtx, input: RecallInput) {
     const searchType = input.searchType ?? "hybrid";
     const limit = input.limit ?? 10;
+    // Embedding happens client-side because the embedding model lives in the
+    // caller's code; the component handles vector search, graph expansion, and
+    // score fusion internally and returns the final ranked cards.
     const queryEmbedding =
       input.queryEmbedding ??
       (searchType === "graph" ? undefined : await this.embedQuery(input.query));
-    const semanticResult =
-      searchType === "graph"
-        ? { results: [] as MemoryCard[] }
-        : ((await ctx.runAction(this.component.actions.recall, {
-            namespace: input.namespace,
-            query: input.query,
-            ...(queryEmbedding === undefined ? {} : { queryEmbedding }),
-            embeddingDimension: this.options.embeddingDimension,
-            searchType,
-            limit,
-            ...(input.agentId === undefined ? {} : { agentId: input.agentId }),
-          })) as { results: MemoryCard[] });
-
-    const graph = input.graph ?? this.options.graph;
-    if (!graph || searchType === "semantic") {
-      return semanticResult;
-    }
-
-    const graphScores = await graph.expand({
+    return (await ctx.runAction(this.component.actions.recall, {
       namespace: input.namespace,
-      seedMemoryIds: semanticResult.results.map((card) => card.memoryId),
-      hops: 2,
-      limit: Math.max(limit * 4, 16),
+      query: input.query,
+      ...(queryEmbedding === undefined ? {} : { queryEmbedding }),
+      embeddingDimension: this.options.embeddingDimension,
+      searchType,
+      limit,
+      ...(input.agentId === undefined ? {} : { agentId: input.agentId }),
       ...(input.entityHints === undefined ? {} : { entityHints: input.entityHints }),
-    });
-    const graphCards =
-      graphScores.length === 0
-        ? []
-        : ((await ctx.runQuery(this.component.queries.fetchMemoryCards, {
-            matches: graphScores.map((score) => ({
-              memoryId: score.memoryId,
-              score: score.graphScore,
-              graphScore: score.graphScore,
-            })),
-          })) as MemoryCard[]);
-
-    return {
-      results: fuseMemoryScores(semanticResult.results, graphCards, { limit }),
-    };
+    })) as { results: MemoryCard[] };
   }
 
   async observe(ctx: ConvexMutationCtx, input: ObserveInput) {
@@ -196,19 +166,15 @@ export class AgentKnowledge {
 
   // Purge all of a namespace's data (e.g. account deletion). The component
   // mutation deletes Convex rows in bounded batches, rescheduling itself until
-  // the namespace is empty, and enqueues a forget_namespace graph sync job;
-  // syncGraph then clears Neo4j with the same retry semantics as every other
-  // graph mutation, so a Neo4j outage never leaves orphaned, unrecoverable data.
+  // the namespace is empty, and enqueues a forget_namespace graph sync job that
+  // the component drains internally with the same retry semantics as every
+  // other graph operation, so a Neo4j outage never leaves orphaned data.
   // deletedMemories counts the first batch — when isDone is false the remainder
   // is purged in the background.
-  async forgetNamespace(ctx: ConvexActionCtx, input: { namespace: string }) {
-    const result = (await ctx.runMutation(this.component.mutations.forgetNamespace, {
+  async forgetNamespace(ctx: ConvexMutationCtx, input: { namespace: string }) {
+    return (await ctx.runMutation(this.component.mutations.forgetNamespace, {
       namespace: input.namespace,
     })) as { deletedMemories: number; isDone: boolean };
-    if (this.options.graph) {
-      await this.syncGraph(ctx, { limit: 10 });
-    }
-    return result;
   }
 
   async getMemory(ctx: ConvexQueryCtx, input: { memoryId: string }) {
@@ -230,37 +196,6 @@ export class AgentKnowledge {
       continueCursor: string | null;
       isDone: boolean;
     };
-  }
-
-  async syncGraph(ctx: ConvexActionCtx, input?: { graph?: GraphStore; limit?: number }) {
-    const graph = input?.graph ?? this.options.graph;
-    if (!graph) {
-      return { succeeded: 0, failed: 0 };
-    }
-    const jobs = (await ctx.runQuery(this.component.queries.listPendingGraphSyncJobs, {
-      limit: input?.limit ?? 10,
-    })) as GraphSyncJob[];
-    let succeeded = 0;
-    let failed = 0;
-    for (const job of jobs) {
-      await ctx.runMutation(this.component.mutations.markGraphSyncJobRunning, {
-        jobId: job.jobId,
-      });
-      try {
-        await graph.syncJob(job);
-        await ctx.runMutation(this.component.mutations.markGraphSyncJobSucceeded, {
-          jobId: job.jobId,
-        });
-        succeeded += 1;
-      } catch (error) {
-        await ctx.runMutation(this.component.mutations.markGraphSyncJobFailed, {
-          jobId: job.jobId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        failed += 1;
-      }
-    }
-    return { succeeded, failed };
   }
 
   private async embedChunks(chunks: ChunkInput[]): Promise<EmbeddedChunkInput[]> {
@@ -313,12 +248,7 @@ export type {
   ExtractedEntity,
   ExtractedKnowledge,
   ExtractedRelationship,
-  GraphExpandInput,
-  GraphMemoryScore,
-  GraphStore,
-  GraphSyncJob,
   MemoryCard,
   MemorySource,
-  Neo4jConfig,
   SearchType,
 } from "./types.js";

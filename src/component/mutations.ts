@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { v } from "convex/values";
-import { mutation } from "./_generated/server.js";
+import { internalMutation, mutation } from "./_generated/server.js";
 import { internal } from "./_generated/api.js";
 import {
   chunkInputValidator,
@@ -12,6 +12,18 @@ import {
 import { clamp } from "../shared/ranking.js";
 
 type MutationCtx = any;
+
+const GRAPH_DRAIN_BATCH = 25;
+// A graph sync job stuck in "running" past this window is treated as crashed
+// (the drain died before completing it) and is reclaimable.
+const STALE_RUNNING_MS = 5 * 60 * 1000;
+
+// Kick the internal Neo4j drain. Enqueuing a job and triggering the drain are
+// the only graph-related things a write does; everything else (running Neo4j,
+// retries, backoff) happens inside the component's graph node action.
+async function scheduleGraphDrain(ctx: MutationCtx) {
+  await ctx.scheduler.runAfter(0, internal.graph.processPendingJobs, { limit: GRAPH_DRAIN_BATCH });
+}
 
 async function ensureNamespace(ctx: MutationCtx, namespace: string, metadata?: unknown) {
   const now = Date.now();
@@ -241,6 +253,8 @@ export const remember = mutation({
       updatedAt: now,
     });
 
+    await scheduleGraphDrain(ctx);
+
     return {
       memoryId,
       ...(replacedMemoryId === undefined ? {} : { replacedMemoryId }),
@@ -339,6 +353,9 @@ export const promote = mutation({
       });
       promoted += 1;
     }
+    if (promoted > 0) {
+      await scheduleGraphDrain(ctx);
+    }
     return { promoted };
   },
 });
@@ -382,6 +399,7 @@ export const deleteByKey = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    await scheduleGraphDrain(ctx);
     return { deleted: true, memoryId: memory._id, graphSyncJobId };
   },
 });
@@ -395,7 +413,11 @@ const FORGET_OBSERVATION_BATCH = 500;
 // bounded batches that reschedule themselves until the namespace is empty, so a
 // large namespace never exceeds a single Convex transaction. Neo4j is cleared
 // via a forget_namespace graph sync job enqueued once on the first pass and
-// driven by the client's syncGraph with the usual retry semantics.
+// drained internally with the usual retry semantics.
+//
+// Known edge: an upsert_memory job already claimed (in-flight fetch) when forget
+// runs can land its node in Neo4j after the forget DETACH DELETE, orphaning it.
+// Narrow window; the next forget/delete reconciles it.
 export const forgetNamespace = mutation({
   args: { namespace: v.string(), graphJobEnqueued: v.optional(v.boolean()) },
   returns: v.object({ deletedMemories: v.number(), isDone: v.boolean() }),
@@ -411,6 +433,7 @@ export const forgetNamespace = mutation({
         createdAt: now,
         updatedAt: now,
       });
+      await scheduleGraphDrain(ctx);
     }
 
     const memories = await ctx.db
@@ -462,9 +485,66 @@ export const forgetNamespace = mutation({
   },
 });
 
-export const markGraphSyncJobRunning = mutation({
+// Atomically claim due graph sync jobs for the drain: pending jobs whose
+// backoff has elapsed, plus jobs stuck "running" past STALE_RUNNING_MS (a
+// previous drain crashed mid-flight). Marking them "running" in the same
+// transaction prevents the post-write drain, the self-reschedule, and the
+// retry cron from processing the same job concurrently.
+export const claimGraphSyncJobs = internalMutation({
+  args: {
+    limit: v.number(),
+  },
+  returns: v.array(
+    v.object({
+      jobId: v.string(),
+      namespace: v.string(),
+      operation: v.string(),
+      attempts: v.number(),
+      payload: v.any(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const scan = Math.max(args.limit * 4, args.limit);
+    const pending = await ctx.db
+      .query("graphSyncJobs")
+      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .order("asc")
+      .take(scan);
+    const running = await ctx.db
+      .query("graphSyncJobs")
+      .withIndex("by_status", (q) => q.eq("status", "running"))
+      .order("asc")
+      .take(scan);
+
+    const candidates = [
+      ...pending.filter((job) => (job.nextAttemptAt ?? 0) <= now),
+      ...running.filter((job) => now - job.updatedAt >= STALE_RUNNING_MS),
+    ].slice(0, args.limit);
+
+    const claimed = [];
+    for (const job of candidates) {
+      const attempts = job.attempts + 1;
+      await ctx.db.patch(job._id, { status: "running", attempts, updatedAt: now });
+      claimed.push({
+        jobId: job._id,
+        namespace: job.namespace,
+        operation: job.operation,
+        attempts,
+        payload: job.payload,
+      });
+    }
+    return claimed;
+  },
+});
+
+// Resolve a claimed job. No error => done (deleted). error + retryAt => schedule
+// a retry. error without retryAt => dead-letter (left "failed" with lastError).
+export const completeGraphSyncJob = internalMutation({
   args: {
     jobId: v.string(),
+    error: v.optional(v.string()),
+    retryAt: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -472,50 +552,20 @@ export const markGraphSyncJobRunning = mutation({
     if (!jobId) {
       return null;
     }
-    const job = await ctx.db.get(jobId);
-    if (!job) {
-      return null;
-    }
-    await ctx.db.patch(jobId, {
-      status: "running",
-      attempts: job.attempts + 1,
-      updatedAt: Date.now(),
-    });
-    return null;
-  },
-});
-
-export const markGraphSyncJobSucceeded = mutation({
-  args: {
-    jobId: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const jobId = ctx.db.normalizeId("graphSyncJobs", args.jobId);
-    if (jobId) {
+    const now = Date.now();
+    if (args.error === undefined) {
+      // Prune on success so graphSyncJobs stays bounded by the active backlog
+      // plus dead-letters, instead of growing with every write.
+      await ctx.db.delete(jobId);
+    } else if (args.retryAt !== undefined) {
       await ctx.db.patch(jobId, {
-        status: "succeeded",
-        updatedAt: Date.now(),
-      });
-    }
-    return null;
-  },
-});
-
-export const markGraphSyncJobFailed = mutation({
-  args: {
-    jobId: v.string(),
-    error: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const jobId = ctx.db.normalizeId("graphSyncJobs", args.jobId);
-    if (jobId) {
-      await ctx.db.patch(jobId, {
-        status: "failed",
+        status: "pending",
         lastError: args.error,
-        updatedAt: Date.now(),
+        nextAttemptAt: args.retryAt,
+        updatedAt: now,
       });
+    } else {
+      await ctx.db.patch(jobId, { status: "failed", lastError: args.error, updatedAt: now });
     }
     return null;
   },

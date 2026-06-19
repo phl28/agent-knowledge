@@ -1,6 +1,6 @@
 {
   "name": "convex-agent-knowledge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Convex component for agent memory backed by Convex vector search and Neo4j graph traversal.",
   "keywords": [
     "agent",
@@ -43,10 +43,6 @@
       "types": "./dist/client/chunking.d.ts",
       "default": "./dist/client/chunking.js"
     },
-    "./node": {
-      "types": "./dist/node/index.d.ts",
-      "default": "./dist/node/index.js"
-    },
     "./_generated/component.js": {
       "types": "./dist/component/_generated/component.d.ts"
     },
@@ -67,19 +63,18 @@
   },
   "dependencies": {
     "ai": "^6.0.168",
-    "neo4j-driver": "^6.0.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@ai-sdk/openai": "^3.0.53",
     "@types/node": "^25.6.0",
-    "convex": "^1.35.1",
+    "convex": "^1.41.0",
     "oxfmt": "^0.53.0",
     "oxlint": "^1.60.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.4"
   },
   "peerDependencies": {
-    "convex": ">=1.29.0"
+    "convex": ">=1.39.0"
   }
 }

@@ -143,6 +143,8 @@ export default defineSchema({
     attempts: v.number(),
     payload: v.any(),
     lastError: v.optional(v.string()),
+    // Earliest time a retryable job may be re-claimed. Unset means "due now".
+    nextAttemptAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

@@ -9,7 +9,6 @@
  */
 
 import type * as knowledge from "../knowledge.js";
-import type * as knowledgeNode from "../knowledgeNode.js";
 
 import type {
   ApiFromModules,
@@ -20,7 +19,6 @@ import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
   knowledge: typeof knowledge;
-  knowledgeNode: typeof knowledgeNode;
 }> = anyApi as any;
 
 /**

@@ -181,32 +181,3 @@ export const fetchMemoryCardsByVectorMatches = internalQuery({
     return cards;
   },
 });
-
-export const listPendingGraphSyncJobs = query({
-  args: {
-    limit: v.number(),
-  },
-  returns: v.array(
-    v.object({
-      jobId: v.string(),
-      namespace: v.string(),
-      operation: v.string(),
-      attempts: v.number(),
-      payload: v.any(),
-    }),
-  ),
-  handler: async (ctx, args) => {
-    const jobs = await ctx.db
-      .query("graphSyncJobs")
-      .withIndex("by_status", (q) => q.eq("status", "pending"))
-      .order("asc")
-      .take(args.limit);
-    return jobs.map((job) => ({
-      jobId: job._id,
-      namespace: job.namespace,
-      operation: job.operation,
-      attempts: job.attempts,
-      payload: job.payload,
-    }));
-  },
-});

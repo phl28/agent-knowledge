@@ -30,6 +30,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           agentId?: string;
           embeddingDimension: number;
+          entityHints?: Array<string>;
           limit?: number;
           namespace: string;
           query: string;
@@ -87,27 +88,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         { graphJobEnqueued?: boolean; namespace: string },
         { deletedMemories: number; isDone: boolean },
-        Name
-      >;
-      markGraphSyncJobFailed: FunctionReference<
-        "mutation",
-        "internal",
-        { error: string; jobId: string },
-        null,
-        Name
-      >;
-      markGraphSyncJobRunning: FunctionReference<
-        "mutation",
-        "internal",
-        { jobId: string },
-        null,
-        Name
-      >;
-      markGraphSyncJobSucceeded: FunctionReference<
-        "mutation",
-        "internal",
-        { jobId: string },
-        null,
         Name
       >;
       observe: FunctionReference<
@@ -298,19 +278,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             text: string;
           }>;
         },
-        Name
-      >;
-      listPendingGraphSyncJobs: FunctionReference<
-        "query",
-        "internal",
-        { limit: number },
-        Array<{
-          attempts: number;
-          jobId: string;
-          namespace: string;
-          operation: string;
-          payload: any;
-        }>,
         Name
       >;
     };
