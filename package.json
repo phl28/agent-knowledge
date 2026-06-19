@@ -73,7 +73,7 @@
   "devDependencies": {
     "@ai-sdk/openai": "^3.0.53",
     "@types/node": "^25.6.0",
-    "convex": "^1.35.1",
+    "convex": "^1.41.0",
     "oxfmt": "^0.52.0",
     "oxlint": "^1.60.0",
     "typescript": "^6.0.3",
