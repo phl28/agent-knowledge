@@ -45,6 +45,10 @@ export type RecallInput = {
   searchType?: SearchType;
   limit?: number;
   agentId?: string;
+  // Entity names that seed graph traversal when there are no semantic results
+  // to expand from (i.e. searchType "graph", or "hybrid" with an empty semantic
+  // set). When semantic search returns seeds, expansion starts from those and
+  // these hints are not used.
   entityHints?: string[];
   queryEmbedding?: number[];
 };

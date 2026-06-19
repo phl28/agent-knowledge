@@ -1,9 +1,9 @@
 // @ts-nocheck
 import { v } from "convex/values";
-import { anyApi } from "convex/server";
 import { action } from "./_generated/server.js";
 import { memoryCardValidator, vectorTableForDimension } from "./validators.js";
 import { fuseMemoryScores } from "../shared/ranking.js";
+import { expand, neo4jHttpFromEnv } from "./neo4j.js";
 
 export const recall = action({
   args: {
@@ -52,13 +52,20 @@ export const recall = action({
 
     // graph + hybrid: expand the graph from the semantic seeds (or from entity
     // hints when there is no semantic query) and fuse the two score signals.
-    const graphScores = await ctx.runAction(anyApi.graph.expandGraph, {
-      namespace: args.namespace,
-      seedMemoryIds: semanticCards.map((card) => card.memoryId),
-      hops: 2,
-      limit: Math.max(limit * 4, 16),
-      ...(args.entityHints ? { entityHints: args.entityHints } : {}),
-    });
+    // Called inline rather than via a separate action to avoid an extra
+    // function hop (recall already runs in the component with the same env).
+    const seedMemoryIds = semanticCards.map((card) => card.memoryId);
+    const hasEntityHints = Array.isArray(args.entityHints) && args.entityHints.length > 0;
+    const graphScores =
+      seedMemoryIds.length > 0 || hasEntityHints
+        ? await expand(neo4jHttpFromEnv(), {
+            namespace: args.namespace,
+            seedMemoryIds,
+            hops: 2,
+            limit: Math.max(limit * 4, 16),
+            ...(args.entityHints ? { entityHints: args.entityHints } : {}),
+          })
+        : [];
     const graphCards =
       graphScores.length === 0
         ? []

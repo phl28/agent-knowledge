@@ -414,6 +414,10 @@ const FORGET_OBSERVATION_BATCH = 500;
 // large namespace never exceeds a single Convex transaction. Neo4j is cleared
 // via a forget_namespace graph sync job enqueued once on the first pass and
 // drained internally with the usual retry semantics.
+//
+// Known edge: an upsert_memory job already claimed (in-flight fetch) when forget
+// runs can land its node in Neo4j after the forget DETACH DELETE, orphaning it.
+// Narrow window; the next forget/delete reconciles it.
 export const forgetNamespace = mutation({
   args: { namespace: v.string(), graphJobEnqueued: v.optional(v.boolean()) },
   returns: v.object({ deletedMemories: v.number(), isDone: v.boolean() }),
@@ -534,8 +538,8 @@ export const claimGraphSyncJobs = internalMutation({
   },
 });
 
-// Resolve a claimed job. No error => succeeded. error + retryAt => schedule a
-// retry. error without retryAt => dead-letter (left "failed" with lastError).
+// Resolve a claimed job. No error => done (deleted). error + retryAt => schedule
+// a retry. error without retryAt => dead-letter (left "failed" with lastError).
 export const completeGraphSyncJob = internalMutation({
   args: {
     jobId: v.string(),
@@ -550,7 +554,9 @@ export const completeGraphSyncJob = internalMutation({
     }
     const now = Date.now();
     if (args.error === undefined) {
-      await ctx.db.patch(jobId, { status: "succeeded", updatedAt: now });
+      // Prune on success so graphSyncJobs stays bounded by the active backlog
+      // plus dead-letters, instead of growing with every write.
+      await ctx.db.delete(jobId);
     } else if (args.retryAt !== undefined) {
       await ctx.db.patch(jobId, {
         status: "pending",
