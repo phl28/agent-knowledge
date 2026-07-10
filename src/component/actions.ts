@@ -2,7 +2,7 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server.js";
 import { memoryCardValidator, vectorTableForDimension } from "./validators.js";
-import { fuseMemoryScores } from "../shared/ranking.js";
+import { applyRecencyDecay, fuseMemoryScores } from "../shared/ranking.js";
 import { expand, neo4jHttpFromEnv } from "./neo4j.js";
 
 export const recall = action({
@@ -22,6 +22,7 @@ export const recall = action({
   handler: async (ctx, args) => {
     const searchType = args.searchType ?? "hybrid";
     const limit = Math.min(Math.max(args.limit ?? 10, 1), 64);
+    const now = Date.now();
 
     let semanticCards = [];
     if (searchType !== "graph" && args.queryEmbedding) {
@@ -47,7 +48,7 @@ export const recall = action({
     }
 
     if (searchType === "semantic") {
-      return { results: semanticCards.slice(0, limit) };
+      return { results: applyRecencyDecay(semanticCards, { now, limit }) };
     }
 
     // graph + hybrid: expand the graph from the semantic seeds (or from entity
@@ -77,6 +78,6 @@ export const recall = action({
             })),
           });
 
-    return { results: fuseMemoryScores(semanticCards, graphCards, { limit }) };
+    return { results: fuseMemoryScores(semanticCards, graphCards, { limit, now }) };
   },
 });

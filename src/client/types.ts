@@ -53,6 +53,7 @@ export type MemoryCard = {
   semanticScore?: number;
   graphScore?: number;
   importance: number;
+  createdAt: number;
   source?: MemorySource;
   metadata?: unknown;
   entities: Array<{
