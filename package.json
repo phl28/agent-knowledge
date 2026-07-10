@@ -62,7 +62,7 @@
     "prepack": "pnpm build"
   },
   "dependencies": {
-    "ai": "^6.0.168",
+    "ai": "^7.0.14",
     "zod": "^4.3.6"
   },
   "devDependencies": {
