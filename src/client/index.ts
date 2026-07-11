@@ -51,6 +51,9 @@ export type RecallInput = {
   // these hints are not used.
   entityHints?: string[];
   queryEmbedding?: number[];
+  // Re-rank the final results with MMR (lexical diversity) so recall does not
+  // return near-duplicate memories about the same fact.
+  diversify?: boolean;
 };
 
 export type ObserveInput = {
@@ -132,6 +135,7 @@ export class AgentKnowledge {
       limit,
       ...(input.agentId === undefined ? {} : { agentId: input.agentId }),
       ...(input.entityHints === undefined ? {} : { entityHints: input.entityHints }),
+      ...(input.diversify === undefined ? {} : { diversify: input.diversify }),
     })) as { results: MemoryCard[] };
   }
 
