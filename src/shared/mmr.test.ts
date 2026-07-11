@@ -10,8 +10,8 @@ describe("jaccardSimilarity", () => {
     expect(jaccardSimilarity(tokens("aapl is a buy"), tokens("aapl is a sell"))).toBe(0.6);
   });
 
-  it("handles empty token sets", () => {
-    expect(jaccardSimilarity(new Set(), new Set())).toBe(1);
+  it("treats untokenizable (empty-set) texts as diverse, not duplicates", () => {
+    expect(jaccardSimilarity(new Set(), new Set())).toBe(0);
     expect(jaccardSimilarity(tokens("aapl"), new Set())).toBe(0);
   });
 });
@@ -44,6 +44,32 @@ describe("mmrRerank", () => {
     expect(mmrRerank([], { limit: 5 })).toEqual([]);
     const single = [{ memoryId: "a", text: "x", score: 1 }];
     expect(mmrRerank(single, { limit: 5 })).toEqual(single);
+  });
+
+  it("diversifies non-Latin text the same way (CJK bigram tokens)", () => {
+    const results = mmrRerank(
+      [
+        { memoryId: "a", text: "用户认为苹果股票本季度值得强力买入", score: 0.9 },
+        { memoryId: "a2", text: "用户认为苹果股票本季度值得强力买入", score: 0.6 },
+        { memoryId: "b", text: "用户偏好低风险债券基金用于退休储蓄", score: 0.5 },
+      ],
+      { limit: 2 },
+    );
+
+    expect(results.map((result) => result.memoryId)).toEqual(["a", "b"]);
+  });
+
+  it("does not collapse distinct Cyrillic memories into duplicates", () => {
+    const results = mmrRerank(
+      [
+        { memoryId: "a", text: "пользователь хочет купить акции", score: 0.9 },
+        { memoryId: "a2", text: "пользователь хочет купить акции", score: 0.6 },
+        { memoryId: "b", text: "низкий риск облигации на пенсию", score: 0.5 },
+      ],
+      { limit: 2 },
+    );
+
+    expect(results.map((result) => result.memoryId)).toEqual(["a", "b"]);
   });
 
   it("respects the limit", () => {

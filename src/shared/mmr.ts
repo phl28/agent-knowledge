@@ -6,17 +6,36 @@ export type MmrCandidate = {
 
 export const DEFAULT_MMR_LAMBDA = 0.7;
 
+// Scripts written without word separators, where a whole clause arrives as one
+// regex run and must be split into character bigrams to compare meaningfully.
+const UNSPACED_SCRIPT =
+  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Khmer}\p{Script=Lao}\p{Script=Myanmar}]/u;
+
 // Lexical (token-set Jaccard) similarity rather than embedding cosine: memory
 // cards do not carry embeddings at ranking time, and re-embedding inside the
 // component would add a model call per recall.
 function tokenize(text: string): Set<string> {
-  return new Set(text.toLowerCase().match(/[a-z0-9_]+/g) ?? []);
+  const tokens = new Set<string>();
+  for (const run of text.toLowerCase().match(/[\p{L}\p{N}_]+/gu) ?? []) {
+    if (!UNSPACED_SCRIPT.test(run)) {
+      tokens.add(run);
+      continue;
+    }
+    const chars = [...run];
+    if (chars.length === 1) {
+      tokens.add(run);
+      continue;
+    }
+    for (let index = 0; index < chars.length - 1; index += 1) {
+      tokens.add(chars[index]! + chars[index + 1]!);
+    }
+  }
+  return tokens;
 }
 
 export function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
-  if (a.size === 0 && b.size === 0) {
-    return 1;
-  }
+  // Untokenizable text has unknown similarity — fail open (diverse) rather
+  // than treating such pairs as duplicates for MMR to suppress.
   if (a.size === 0 || b.size === 0) {
     return 0;
   }
