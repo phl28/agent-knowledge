@@ -49,6 +49,7 @@ async function buildMemoryCard(
     ...(scores?.graphScore === undefined ? {} : { graphScore: scores.graphScore }),
     importance: memory.importance,
     createdAt: memory.createdAt,
+    ...(memory.lastAccessedAt === undefined ? {} : { lastAccessedAt: memory.lastAccessedAt }),
     ...(memory.source === undefined ? {} : { source: memory.source }),
     ...(memory.metadata === undefined ? {} : { metadata: memory.metadata }),
     entities: entities.map((entity) => ({

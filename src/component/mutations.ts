@@ -295,6 +295,9 @@ export const observe = mutation({
       ...(args.metadata === undefined ? {} : { metadata: args.metadata }),
       createdAt: now,
     });
+    if (args.outcome === "helpful") {
+      await ctx.db.patch(memoryId, { lastAccessedAt: now, updatedAt: now });
+    }
   },
 });
 

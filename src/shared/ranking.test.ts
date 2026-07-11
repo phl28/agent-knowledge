@@ -157,3 +157,52 @@ describe("semantic-only fusion (empty graph set)", () => {
     expect(results[0]!.score).toBeCloseTo(0.7 * 0.65, 10);
   });
 });
+
+describe("reinforced recency", () => {
+  it("keeps a recently-helpful old memory ahead of an equally old unused one", () => {
+    const now = 1_000 * DAY_MS;
+    const results = fuseMemoryScores(
+      [
+        {
+          memoryId: "reinforced",
+          score: 0.8,
+          semanticScore: 0.8,
+          importance: 0.5,
+          createdAt: now - 240 * DAY_MS,
+          lastAccessedAt: now - 2 * DAY_MS,
+        },
+        {
+          memoryId: "stale",
+          score: 0.8,
+          semanticScore: 0.8,
+          importance: 0.5,
+          createdAt: now - 240 * DAY_MS,
+        },
+      ],
+      [],
+      { now },
+    );
+
+    expect(results.map((card) => card.memoryId)).toEqual(["reinforced", "stale"]);
+    expect(results[0]!.score).toBeGreaterThan(results[1]!.score);
+  });
+
+  it("anchors semantic-only decay to lastAccessedAt as well", () => {
+    const now = 1_000 * DAY_MS;
+    const results = fuseMemoryScores(
+      [
+        { memoryId: "stale", score: 0.85, createdAt: now - 360 * DAY_MS },
+        {
+          memoryId: "reinforced",
+          score: 0.8,
+          createdAt: now - 360 * DAY_MS,
+          lastAccessedAt: now - 1 * DAY_MS,
+        },
+      ],
+      [],
+      { now, limit: 2 },
+    );
+
+    expect(results.map((card) => card.memoryId)).toEqual(["reinforced", "stale"]);
+  });
+});
