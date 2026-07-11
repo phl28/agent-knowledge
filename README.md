@@ -1,8 +1,7 @@
 # Agent Knowledge Convex Component
 
-Pre-alpha package reservation release. The component skeleton is usable for
-experimentation, but the API and storage model may change before a stable
-release.
+Beta release. The component is in active use, but the API and storage model may
+still change before a stable 1.0 release.
 
 Agent Knowledge is a Convex component for persistent agent memory. It uses Convex
 tables as the source of truth, Convex vector search for semantic recall, and Neo4j
