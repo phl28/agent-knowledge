@@ -34,21 +34,6 @@ function cardRecency(
   return recencyWeight(options.now - card.createdAt, options.halfLifeDays);
 }
 
-// Decay + sort step for result sets that skip score fusion (e.g. semantic-only
-// recall, which is also the vector fallback path when the graph is down).
-export function applyRecencyDecay<T extends RankedMemoryCard>(
-  cards: T[],
-  options?: { now?: number; halfLifeDays?: number; limit?: number },
-) {
-  return cards
-    .map((card) => ({
-      ...card,
-      score: card.score * cardRecency(card, options),
-    }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, options?.limit ?? cards.length);
-}
-
 export function fuseMemoryScores<T extends RankedMemoryCard>(
   semanticCards: T[],
   graphCards: T[],

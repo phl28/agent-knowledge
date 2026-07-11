@@ -2,7 +2,7 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server.js";
 import { memoryCardValidator, vectorTableForDimension } from "./validators.js";
-import { applyRecencyDecay, fuseMemoryScores } from "../shared/ranking.js";
+import { fuseMemoryScores } from "../shared/ranking.js";
 import { expand, neo4jHttpFromEnv } from "./neo4j.js";
 
 export const recall = action({
@@ -48,7 +48,10 @@ export const recall = action({
     }
 
     if (searchType === "semantic") {
-      return { results: applyRecencyDecay(semanticCards, { now, limit }) };
+      // Fuse with an empty graph set so the semantic-only path (also what the
+      // app retries with when the graph is down) scores identically to hybrid:
+      // decayed relevance plus the undecayed importance term.
+      return { results: fuseMemoryScores(semanticCards, [], { limit, now }) };
     }
 
     // graph + hybrid: expand the graph from the semantic seeds (or from entity

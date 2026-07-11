@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  applyRecencyDecay,
-  clamp,
-  DEFAULT_HALF_LIFE_DAYS,
-  fuseMemoryScores,
-  recencyWeight,
-} from "./ranking.js";
+import { clamp, DEFAULT_HALF_LIFE_DAYS, fuseMemoryScores, recencyWeight } from "./ranking.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -117,22 +111,49 @@ describe("recencyWeight", () => {
   });
 });
 
-describe("applyRecencyDecay", () => {
-  it("re-sorts semantic-only results by decayed score", () => {
+describe("semantic-only fusion (empty graph set)", () => {
+  it("re-sorts results by decayed relevance", () => {
     const now = 1_000 * DAY_MS;
-    const results = applyRecencyDecay(
+    const results = fuseMemoryScores(
       [
         { memoryId: "old", score: 0.9, createdAt: now - 360 * DAY_MS },
         { memoryId: "new", score: 0.8, createdAt: now - 1 * DAY_MS },
       ],
+      [],
       { now, limit: 2 },
     );
 
     expect(results.map((card) => card.memoryId)).toEqual(["new", "old"]);
   });
 
-  it("leaves scores untouched for cards without createdAt", () => {
-    const results = applyRecencyDecay([{ memoryId: "a", score: 0.7 }], { now: 123 });
-    expect(results[0]!.score).toBe(0.7);
+  it("keeps the undecayed importance term so promoted facts stay sticky", () => {
+    const now = 1_000 * DAY_MS;
+    const results = fuseMemoryScores(
+      [
+        {
+          memoryId: "evergreen",
+          score: 0.6,
+          importance: 1,
+          createdAt: now - 720 * DAY_MS,
+        },
+        {
+          memoryId: "recent-noise",
+          score: 0.6,
+          importance: 0,
+          createdAt: now,
+        },
+      ],
+      [],
+      { now, importanceWeight: 0.4 },
+    );
+
+    expect(results[0]!.memoryId).toBe("evergreen");
+  });
+
+  it("applies no decay to cards without createdAt", () => {
+    const results = fuseMemoryScores([{ memoryId: "a", score: 0.7, importance: 0 }], [], {
+      now: 123,
+    });
+    expect(results[0]!.score).toBeCloseTo(0.7 * 0.65, 10);
   });
 });
