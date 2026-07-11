@@ -55,7 +55,7 @@
     "format:check": "oxfmt --check README.md package.json convex.json pnpm-workspace.yaml src example/convex '!src/component/_generated/**' '!example/convex/_generated/**'",
     "lint": "oxlint --deny correctness --vitest-plugin --ignore-pattern src/component/_generated --ignore-pattern example/convex/_generated .",
     "lint:fix": "oxlint --deny correctness --vitest-plugin --fix --ignore-pattern src/component/_generated --ignore-pattern example/convex/_generated .",
-    "publish:alpha": "pnpm publish --tag alpha",
+    "publish:beta": "pnpm publish --tag beta",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build:codegen": "convex codegen --component-dir ./src/component && pnpm build",
