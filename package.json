@@ -1,6 +1,6 @@
 {
   "name": "convex-agent-knowledge",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Convex component for agent memory backed by Convex vector search and Neo4j graph traversal.",
   "keywords": [
     "agent",
