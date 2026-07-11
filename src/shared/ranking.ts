@@ -4,10 +4,34 @@ export type RankedMemoryCard = {
   semanticScore?: number;
   graphScore?: number;
   importance?: number;
+  createdAt?: number;
 };
+
+// Default chosen for durable agent knowledge (e.g. user preferences), which
+// ages slower than chat-transcript memory — tune per deployment if needed.
+export const DEFAULT_HALF_LIFE_DAYS = 90;
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 export function clamp(value: number, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value));
+}
+
+export function recencyWeight(ageMs: number, halfLifeDays = DEFAULT_HALF_LIFE_DAYS) {
+  if (!Number.isFinite(ageMs) || ageMs <= 0 || halfLifeDays <= 0) {
+    return 1;
+  }
+  return Math.exp((-Math.LN2 * ageMs) / (halfLifeDays * MS_PER_DAY));
+}
+
+function cardRecency(
+  card: RankedMemoryCard,
+  options?: { now?: number; halfLifeDays?: number },
+): number {
+  if (options?.now === undefined || card.createdAt === undefined) {
+    return 1;
+  }
+  return recencyWeight(options.now - card.createdAt, options.halfLifeDays);
 }
 
 export function fuseMemoryScores<T extends RankedMemoryCard>(
@@ -18,6 +42,8 @@ export function fuseMemoryScores<T extends RankedMemoryCard>(
     graphWeight?: number;
     importanceWeight?: number;
     limit?: number;
+    now?: number;
+    halfLifeDays?: number;
   },
 ) {
   const semanticWeight = options?.semanticWeight ?? 0.65;
@@ -53,10 +79,14 @@ export function fuseMemoryScores<T extends RankedMemoryCard>(
       const semanticScore = card.semanticScore ?? 0;
       const graphScore = card.graphScore ?? 0;
       const importance = card.importance ?? 0;
+      // Decay only the relevance signals; importance stays sticky so durable
+      // promoted facts are not buried by age alone.
+      const recency = cardRecency(card, options);
       return {
         ...card,
         score:
-          semanticScore * semanticWeight + graphScore * graphWeight + importance * importanceWeight,
+          (semanticScore * semanticWeight + graphScore * graphWeight) * recency +
+          importance * importanceWeight,
       };
     })
     .sort((a, b) => b.score - a.score)

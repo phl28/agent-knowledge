@@ -22,6 +22,7 @@ export const recall = action({
   handler: async (ctx, args) => {
     const searchType = args.searchType ?? "hybrid";
     const limit = Math.min(Math.max(args.limit ?? 10, 1), 64);
+    const now = Date.now();
 
     let semanticCards = [];
     if (searchType !== "graph" && args.queryEmbedding) {
@@ -47,7 +48,10 @@ export const recall = action({
     }
 
     if (searchType === "semantic") {
-      return { results: semanticCards.slice(0, limit) };
+      // Fuse with an empty graph set so the semantic-only path (also what the
+      // app retries with when the graph is down) scores identically to hybrid:
+      // decayed relevance plus the undecayed importance term.
+      return { results: fuseMemoryScores(semanticCards, [], { limit, now }) };
     }
 
     // graph + hybrid: expand the graph from the semantic seeds (or from entity
@@ -77,6 +81,6 @@ export const recall = action({
             })),
           });
 
-    return { results: fuseMemoryScores(semanticCards, graphCards, { limit }) };
+    return { results: fuseMemoryScores(semanticCards, graphCards, { limit, now }) };
   },
 });

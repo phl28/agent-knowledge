@@ -48,6 +48,7 @@ async function buildMemoryCard(
     ...(scores?.semanticScore === undefined ? {} : { semanticScore: scores.semanticScore }),
     ...(scores?.graphScore === undefined ? {} : { graphScore: scores.graphScore }),
     importance: memory.importance,
+    createdAt: memory.createdAt,
     ...(memory.source === undefined ? {} : { source: memory.source }),
     ...(memory.metadata === undefined ? {} : { metadata: memory.metadata }),
     entities: entities.map((entity) => ({

@@ -51,6 +51,7 @@ export const memoryCardValidator = v.object({
   semanticScore: v.optional(v.number()),
   graphScore: v.optional(v.number()),
   importance: v.number(),
+  createdAt: v.number(),
   source: v.optional(sourceValidator),
   metadata: v.optional(v.any()),
   entities: v.array(
