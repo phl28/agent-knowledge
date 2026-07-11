@@ -69,7 +69,7 @@
     "@ai-sdk/openai": "^4.0.1",
     "@types/node": "^26.0.1",
     "convex": "^1.41.0",
-    "oxfmt": "^0.56.0",
+    "oxfmt": "^0.57.0",
     "oxlint": "^1.60.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.4"
