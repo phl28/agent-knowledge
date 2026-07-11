@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { action } from "./_generated/server.js";
 import { memoryCardValidator, vectorTableForDimension } from "./validators.js";
 import { fuseMemoryScores } from "../shared/ranking.js";
+import { mmrRerank } from "../shared/mmr.js";
 import { expand, neo4jHttpFromEnv } from "./neo4j.js";
 
 export const recall = action({
@@ -15,6 +16,7 @@ export const recall = action({
     limit: v.optional(v.number()),
     agentId: v.optional(v.string()),
     entityHints: v.optional(v.array(v.string())),
+    diversify: v.optional(v.boolean()),
   },
   returns: v.object({
     results: v.array(memoryCardValidator),
@@ -51,7 +53,12 @@ export const recall = action({
       // Fuse with an empty graph set so the semantic-only path (also what the
       // app retries with when the graph is down) scores identically to hybrid:
       // decayed relevance plus the undecayed importance term.
-      return { results: fuseMemoryScores(semanticCards, [], { limit, now }) };
+      if (!args.diversify) {
+        return { results: fuseMemoryScores(semanticCards, [], { limit, now }) };
+      }
+      // Score the wider pool first, then let MMR pick the diverse final set.
+      const scored = fuseMemoryScores(semanticCards, [], { limit: limit * 2, now });
+      return { results: mmrRerank(scored, { limit }) };
     }
 
     // graph + hybrid: expand the graph from the semantic seeds (or from entity
@@ -81,6 +88,12 @@ export const recall = action({
             })),
           });
 
-    return { results: fuseMemoryScores(semanticCards, graphCards, { limit, now }) };
+    if (!args.diversify) {
+      return { results: fuseMemoryScores(semanticCards, graphCards, { limit, now }) };
+    }
+    // Fuse (with decay) over a wider candidate pool, then let MMR pick the
+    // final set so diversity has near-duplicates to trade away.
+    const fused = fuseMemoryScores(semanticCards, graphCards, { limit: limit * 2, now });
+    return { results: mmrRerank(fused, { limit }) };
   },
 });
