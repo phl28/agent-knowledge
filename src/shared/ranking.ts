@@ -5,6 +5,7 @@ export type RankedMemoryCard = {
   graphScore?: number;
   importance?: number;
   createdAt?: number;
+  lastAccessedAt?: number;
 };
 
 // Default chosen for durable agent knowledge (e.g. user preferences), which
@@ -28,10 +29,13 @@ function cardRecency(
   card: RankedMemoryCard,
   options?: { now?: number; halfLifeDays?: number },
 ): number {
-  if (options?.now === undefined || card.createdAt === undefined) {
+  // Recency anchors to the last helpful use when one exists, so memories that
+  // keep proving useful stay fresh instead of decaying from creation.
+  const anchor = card.lastAccessedAt ?? card.createdAt;
+  if (options?.now === undefined || anchor === undefined) {
     return 1;
   }
-  return recencyWeight(options.now - card.createdAt, options.halfLifeDays);
+  return recencyWeight(options.now - anchor, options.halfLifeDays);
 }
 
 export function fuseMemoryScores<T extends RankedMemoryCard>(

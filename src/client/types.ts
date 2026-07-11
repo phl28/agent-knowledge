@@ -54,6 +54,7 @@ export type MemoryCard = {
   graphScore?: number;
   importance: number;
   createdAt: number;
+  lastAccessedAt?: number;
   source?: MemorySource;
   metadata?: unknown;
   entities: Array<{

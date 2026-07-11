@@ -56,6 +56,9 @@ export default defineSchema({
     status: memoryStatus,
     importance: v.number(),
     observationScore: v.number(),
+    // Last time the memory was observed helpful; recall recency decays from
+    // this instead of createdAt, so useful memories stay fresh.
+    lastAccessedAt: v.optional(v.number()),
     embeddingDimension: v.number(),
     chunkCount: v.number(),
     entityCount: v.number(),
