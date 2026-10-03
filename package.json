@@ -69,10 +69,10 @@
     "@ai-sdk/openai": "^4.0.1",
     "@types/node": "^26.0.1",
     "convex": "^1.41.0",
-    "oxfmt": "^0.58.0",
+    "oxfmt": "^0.70.0",
     "oxlint": "^1.60.0",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.4"
+    "vitest": "^5.0.2"
   },
   "peerDependencies": {
     "convex": ">=1.39.0"
